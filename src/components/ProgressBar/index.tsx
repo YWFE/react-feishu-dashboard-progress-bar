@@ -121,6 +121,8 @@ const getCategories = (tableId: string) => {
 export default function ProgressBar() {
   const { t, i18n } = useTranslation();
 
+  // 测试推送
+
   // create时的默认配置
   const [config, setConfig] = useState<ICountDownConfig>({
     target: new Date().getTime(),
