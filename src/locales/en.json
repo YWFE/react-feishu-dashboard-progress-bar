@@ -1,0 +1,16 @@
+{
+  "label.set.target": "Date and Time",
+  "second": "Second",
+  "minute": "Minute",
+  "hour": "Hour",
+  "day": "Day",
+  "week": "Week",
+  "month": "Month",
+  "year": "Year",
+  "label.unit": "Unit",
+  "label.color": "Color",
+  "confirm": "Confirm",
+  "please.config": "Please click the top right to configure time",
+  "target.remain": "Remaining until {{time}}",
+  "label.display.time": "Display Title"
+}
