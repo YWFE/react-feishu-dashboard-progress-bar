@@ -853,6 +853,7 @@ function ConfigPanel(props: {
                 getTableRange(val),
                 getCategories(val),
               ]);
+              console.log('categories =>', categories);
               setDataRange([...tableRanges]);
               setCategories([...categories]);
               resetPageConfig({
@@ -992,7 +993,7 @@ function ConfigPanel(props: {
               value={pageConfig?.targetValue}
               options={categories
                 .filter(
-                  (cItem) => cItem.fieldType === 19 || cItem.fieldType === 20
+                  (cItem) => cItem.fieldType === 19 || cItem.fieldType === 2
                 )
                 .map((category) => ({
                   label: category.fieldName,
@@ -1104,7 +1105,7 @@ function ConfigPanel(props: {
               value={pageConfig?.currentValue}
               options={categories
                 .filter(
-                  (cItem) => cItem.fieldType === 19 || cItem.fieldType === 20
+                  (cItem) => cItem.fieldType === 19 || cItem.fieldType === 2
                 )
                 .map((category) => ({
                   label: category.fieldName,
