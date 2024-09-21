@@ -696,7 +696,7 @@ function ProgressBarView({
               const { fieldType } = cItem;
               if (fieldType === 1) {
                 return (
-                  <Col span={12}>
+                  <Col span={12} key={`filter-${cItem?.fieldId}`}>
                     <Form.Input
                       field={cItem?.fieldId}
                       label={cItem?.fieldName}
@@ -708,7 +708,7 @@ function ProgressBarView({
                 );
               } else if (fieldType === 5) {
                 return (
-                  <Col span={12}>
+                  <Col span={12} key={`filter-${cItem?.fieldId}`}>
                     <Form.DatePicker
                       type="date"
                       insetInput
