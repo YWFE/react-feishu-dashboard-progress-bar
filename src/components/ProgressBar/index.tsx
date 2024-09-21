@@ -1,5 +1,5 @@
 import './style.scss';
-import React, { useLayoutEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
   dashboard,
   bitable,
@@ -9,52 +9,35 @@ import {
   SourceType,
   FieldType,
 } from '@lark-base-open/js-sdk';
-// import { Button, DatePicker, ConfigProvider, Checkbox, Row, Col, Input, Switch, Select as DySelect } from '@douyinfe/semi-ui';
 import {
-  useFormApi,
   Form,
-  DatePicker,
   Col,
   Row,
-  Input,
   RadioGroup,
   Radio,
   InputNumber,
+  Banner,
 } from '@douyinfe/semi-ui';
-import { Button, Checkbox, Switch, Select } from 'antd';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { Button, Select } from 'antd';
+import { useState, useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
-import { getTime } from './utils';
+// import { getTime } from './utils';
 import { useConfig } from '../../hooks';
-import dayjs from 'dayjs';
+// import dayjs from 'dayjs';
 import classnames from 'classnames';
 import { useTranslation } from 'react-i18next';
 import { TFunction } from 'i18next/typescript/t';
 import { ColorPicker } from '../ColorPicker';
-import { Indicator } from './components/indicator';
 import { Item } from '../Item';
-import { YwTable } from '@ywfe/yw-design';
-import { use } from 'i18next';
-import { c } from 'vite/dist/node/types.d-aGj9QkWt';
+
+let myChart: any = null; // echarts实例
 
 /** 符合convertTimestamp的日期格式 */
-const titleDateReg = /\d{4}-\d{1,2}-\d{1,2}\s\d+:\d+:\d{1,2}/;
+// const titleDateReg = /\d{4}-\d{1,2}-\d{1,2}\s\d+:\d+:\d{1,2}/;
 
-interface ICountDownConfig {
-  color: string;
-  /** 毫秒级时间戳 */
-  target: number;
-  units: string[];
-  othersConfig: string[];
-  title: string;
-  showTitle: boolean;
-  /** 是否显示倒计时 */
-  showCountDown: boolean;
-}
+// const othersConfigKey: { key: string; title: string }[] = [];
 
-const othersConfigKey: { key: string; title: string }[] = [];
-
-const defaultOthersConfig = ['showTitle'];
+// const defaultOthersConfig = ['showTitle'];
 
 const getAvailableUnits: (t: TFunction<'translation', undefined>) => {
   [p: string]: { title: string; unit: number; order: number };
@@ -121,31 +104,21 @@ const getCategories = (tableId: string) => {
 export default function ProgressBar() {
   const { t, i18n } = useTranslation();
 
-  // 测试推送
-
-  // create时的默认配置
-  const [config, setConfig] = useState<ICountDownConfig>({
-    target: new Date().getTime(),
-    color: 'var(--ccm-chart-N700)',
-    units: defaultUnits,
-    title: t('target.remain'),
-    showTitle: false,
-    showCountDown: true,
-    othersConfig: defaultOthersConfig,
-  });
+  const filterFormRef = useRef();
 
   // create时的默认配置new
   const [pageConfig, setPageConfig] = useState<any>({
+    target: new Date().getTime(),
     color: '#373c43',
     tableSourceSelected: '',
     dataRangeSelected: '',
     categoriesSelected: [],
     // 单位
-    unit: '0',
+    unit: '无',
     // 格式
-    format: '1',
+    format: '0',
     // 百分比格式
-    percentageFormat: '1',
+    percentageFormat: '0',
     // 目标值类型
     targetValueType: '1',
     targetValueTypeKind: '',
@@ -173,7 +146,7 @@ export default function ProgressBar() {
   const [tableList, setTableList] = useState<any[]>([]);
   const [tableFileds, setTableFileds] = useState<any[]>([]);
 
-  const log = console.log.bind(console);
+  // const log = console.log.bind(console);
 
   const availableUnits = useMemo(() => getAvailableUnits(t), [i18n.language]);
 
@@ -188,7 +161,6 @@ export default function ProgressBar() {
     if (timer.current) {
       clearTimeout(timer.current);
     }
-    console.log('updateConfig res =>', res);
     const { customConfig } = res;
     if (customConfig) {
       setPageConfig(customConfig as any);
@@ -196,25 +168,26 @@ export default function ProgressBar() {
         //自动化发送截图。 预留3s给浏览器进行渲染，3s后告知服务端可以进行截图了（对域名进行了拦截，此功能仅上架部署后可用）。
         dashboard.setRendered();
         getData({
-          ...customConfig,
+          config: {
+            ...customConfig,
+          },
         });
       }, 3000);
     }
   };
 
-  const getInit = async () => {
+  const getInit = async (tableSourceSelected?: string) => {
     // 获取table数据来源
     const tableSourceList = await getTableSourceList();
     setTableSource(tableSourceList);
 
     // 创建阶段没有任何配置，设置默认配置
-    const tableId = tableSourceList[0]?.tableId;
+    const tableId = tableSourceSelected || tableSourceList[0]?.tableId;
 
     const [tableRanges, categories] = await Promise.all([
       getTableRange(tableId),
       getCategories(tableId),
     ]);
-    console.log('tableSourceList =>', tableRanges, categories);
 
     setDataRange(tableRanges);
     setCategories(categories);
@@ -222,10 +195,13 @@ export default function ProgressBar() {
 
   // 绘制chart
   const drawChart = () => {
-    const { targetVal, targetValStr, currentVal, currentValStr, percentage } =
-      renderData;
+    const { targetVal, currentVal } = renderData;
+    let showCurrentVal = currentVal;
     document.getElementById('main')?.removeAttribute('_echarts_instance_');
-    var myChart = echarts.init(document.getElementById('main'));
+    myChart = echarts.init(document.getElementById('main'));
+    if (currentVal - targetVal > 0) {
+      showCurrentVal = targetVal;
+    }
     // 绘制图表
     const option = {
       title: {
@@ -237,8 +213,9 @@ export default function ProgressBar() {
       },
       // backgroundColor: '#17326b',
       grid: {
+        show: false,
         left: '0',
-        top: '10',
+        top: '0',
         right: '0',
         bottom: '0',
         containLabel: true,
@@ -285,7 +262,7 @@ export default function ProgressBar() {
           name: '条',
           type: 'bar',
           barWidth: 20,
-          data: [currentVal || 0],
+          data: [showCurrentVal || 0],
           // barCategoryGap: 20,
           itemStyle: {
             normal: {
@@ -325,7 +302,6 @@ export default function ProgressBar() {
         },
       ],
     };
-    console.log('option =>', option);
     myChart.setOption(option, true);
   };
 
@@ -353,42 +329,32 @@ export default function ProgressBar() {
   useConfig(updateConfig);
 
   const getData = async (obj?: any) => {
-    const pageConfigInfo = obj
-      ? obj
-      : {
-          ...pageConfig,
-        };
-    getInit();
-    // if (
-    //   dashboard.state === DashboardState.Config ||
-    //   dashboard.state === DashboardState.Create
-    // ) {
-    //   console.log('dashboard.state=>', dashboard, DashboardState);
-    //   const tableList: any = await base.getTableList();
-    //   log('tableList=>', tableList);
-    //   setTableList([...(tableList || [])]);
-    //   const tableCategories = await dashboard.getCategories(tableList[0].id);
-    //   setTableFileds([...(tableCategories || [])]);
-    //   log('tableCategories=>', tableCategories);
-    //   const ranges = await dashboard.getTableDataRange(tableList[0].id);
-    //   const preData = await dashboard.getPreviewData({
-    //     tableId: tableList[0].id,
-    //     dataRange: ranges[0],
-    //   });
-    //   log('preData=>', preData);
-    // }
+    const pageConfigInfo =
+      obj && obj?.config
+        ? {
+            ...obj?.config,
+          }
+        : {
+            ...pageConfig,
+          };
+    getInit(pageConfigInfo?.tableSourceSelected);
 
     if (
       dashboard.state === DashboardState.View ||
       dashboard.state === DashboardState.Config ||
       dashboard.state === DashboardState.Create
     ) {
-      console.log('pageConfigInfo =>', pageConfigInfo);
       // const tableData = await dashboard.getData();
       // const tableList = await base.getTableList();
       // const view = await table.getViewById(viewId);
       // console.log('tableData =>', tableData);
       // console.log('tableList =>', tableList);
+      const { categoriesSelected } = pageConfigInfo;
+      // 获取过滤器配置
+      const categoriesSelectedKeys = (categoriesSelected || []).map(
+        (cItem: string) => JSON.parse(cItem)
+      );
+
       const table = await bitable.base.getTableById(
         pageConfigInfo.tableSourceSelected
       );
@@ -403,73 +369,148 @@ export default function ProgressBar() {
       // const recordIdList = await table.getRecordIdList();
       // console.log('recordIdList =>', recordIdList);
       // 获取table的所有记录。 Get all records
-      const records =
+      const recordsOriginal =
         (await table.getRecords({ pageSize: 5000 })).records || [];
+      const filterFormValues =
+        obj?.filterFormValues ||
+        filterFormRef?.current?.formApi.getValues() ||
+        {};
+      const filterFormValuesKeys = Object.keys(filterFormValues);
+      let records = [];
+      // filterFormValuesKeys 循环过滤
+      if (filterFormValuesKeys.length > 0) {
+        records = recordsOriginal.filter((record: any) => {
+          let isMatch = true;
+          filterFormValuesKeys.forEach((key) => {
+            let value = null;
+            if (
+              categoriesSelectedKeys.find(
+                (cItem: any) => cItem?.fieldId === key
+              )?.fieldType === 5
+            ) {
+              value = new Date(filterFormValues[key]).getTime();
+            } else {
+              value = filterFormValues[key];
+            }
+            if (value) {
+              if (record.fields[key] !== value) {
+                isMatch = false;
+              }
+            }
+          });
+          return isMatch;
+        });
+      } else {
+        records = recordsOriginal;
+      }
+
+      // if (filterFormRef?.current) {
+      //   console.log(
+      //     'filterFormRef=>',
+      //     filterFormRef.current,
+      //     filterFormRef?.current?.formApi.getValues()
+      //   );
+      // }
+
       // const recordData = (records?.records || []).map((record) => ());
       let currentValues: any = {
         targetVal: 0,
         currentVal: 0,
         percentage: 0,
       };
-      // 设置目标值
-      if (pageConfigInfo?.targetValueType === '1') {
-        // 自定义值
-        currentValues.targetVal = (pageConfigInfo?.targetValue).toFixed(
-          +pageConfigInfo?.format || 0
-        );
-      } else if (
-        pageConfigInfo?.targetValueType === '2' &&
-        pageConfigInfo?.targetValueTypeKind === 'COUNTA'
+      if (
+        dashboard.state === DashboardState.View &&
+        !pageConfigInfo?.targetValue &&
+        !pageConfigInfo?.currentValue
       ) {
-        // 多维表格数据字段数值
-        currentValues.targetVal = Object.keys(records[0].fields).length;
-      } else if (pageConfigInfo?.targetValueType === '2') {
-        // 多维表格数据
-        const arr: any = [];
-        records.forEach((record: any) => {
-          arr.push(record.fields[pageConfigInfo?.targetValue]);
-        });
-        currentValues.targetVal = computeValue(
-          arr,
-          pageConfigInfo?.targetValueComputed
-        ).toFixed(+pageConfigInfo?.format || 0);
+        currentValues.targetVal = '-';
+        currentValues.currentVal = '-';
+        currentValues.percentage = '-';
+        // 设置显示值
+        currentValues.targetValStr = '-';
+        currentValues.currentValStr = '-';
+        setRenderData(currentValues);
+        return;
       }
-      // 设置当前值
-      if (pageConfigInfo?.currentValueType === '1') {
-        // 自定义值
-        currentValues.currentVal = (pageConfigInfo?.currentValue).toFixed(
-          +pageConfigInfo?.format || 0
-        );
-      } else if (
-        pageConfigInfo?.currentValueType === '2' &&
-        pageConfigInfo?.currentValueTypeKind === 'COUNTA'
-      ) {
-        // 多维表格数据字段数值
-        currentValues.currentVal = Object.keys(records[0].fields).length;
-      } else if (pageConfigInfo?.targetValueType === '2') {
-        // 多维表格数据
-        const arr: any = [];
-        records.forEach((record: any) => {
-          arr.push(record.fields[pageConfigInfo?.currentValue]);
-        });
-        // arr 合计
-        currentValues.currentVal = computeValue(
-          arr,
-          pageConfigInfo?.currentValueComputed
-        ).toFixed(+pageConfigInfo?.format || 0);
+      if (records.length) {
+        // 设置目标值
+        if (!pageConfigInfo?.targetValue) {
+          currentValues.targetVal = '-';
+          currentValues.targetValStr = '-';
+        } else if (pageConfigInfo?.targetValueType === '1') {
+          // 自定义值
+          currentValues.targetVal = (+pageConfigInfo?.targetValue).toFixed(
+            +pageConfigInfo?.format || 0
+          );
+        } else if (
+          pageConfigInfo?.targetValueType === '2' &&
+          pageConfigInfo?.targetValueTypeKind === 'COUNTA'
+        ) {
+          // 多维表格数据字段数值
+          currentValues.targetVal = Object.keys(records[0].fields).length;
+        } else if (pageConfigInfo?.targetValueType === '2') {
+          // 多维表格数据
+          const arr: any = [];
+          records.forEach((record: any) => {
+            arr.push(record.fields[pageConfigInfo?.targetValue]);
+          });
+          currentValues.targetVal = (+computeValue(
+            arr,
+            pageConfigInfo?.targetValueComputed
+          )).toFixed(+pageConfigInfo?.format || 0);
+        }
+        // 设置当前值
+        if (!pageConfigInfo?.currentValue) {
+          currentValues.currentVal = '-';
+          currentValues.currentValStr = '-';
+        } else if (pageConfigInfo?.currentValueType === '1') {
+          // 自定义值
+          currentValues.currentVal = (+pageConfigInfo?.currentValue).toFixed(
+            +pageConfigInfo?.format || 0
+          );
+        } else if (
+          pageConfigInfo?.currentValueType === '2' &&
+          pageConfigInfo?.currentValueTypeKind === 'COUNTA'
+        ) {
+          // 多维表格数据字段数值
+          currentValues.currentVal = Object.keys(records[0].fields).length;
+        } else if (pageConfigInfo?.currentValueType === '2') {
+          // 多维表格数据
+          const arr: any = [];
+          records.forEach((record: any) => {
+            arr.push(record.fields[pageConfigInfo?.currentValue]);
+          });
+          // arr 合计
+          currentValues.currentVal = (+computeValue(
+            arr,
+            pageConfigInfo?.currentValueComputed
+          )).toFixed(+pageConfigInfo?.format || 0);
+        }
+      } else {
+        currentValues.targetVal = (0).toFixed(+pageConfigInfo?.format || 0);
+        currentValues.currentVal = (0).toFixed(+pageConfigInfo?.format || 0);
       }
-      // 设置百分比
-      currentValues.percentage = (
-        (currentValues.currentVal / currentValues.targetVal) *
-        100
-      ).toFixed(+pageConfigInfo?.percentageFormat || 0);
-      // 设置显示值
-      currentValues.targetValStr = `${currentValues.targetVal}${
-        pageConfigInfo?.unit || ''
-      }`;
-      currentValues.currentValStr = `${currentValues.currentVal}${
-        pageConfigInfo?.unit || ''
-      }`;
+
+      if (!pageConfigInfo?.targetValue || !pageConfigInfo?.currentValue) {
+        currentValues.percentage = '-';
+      } else {
+        // 设置百分比
+        currentValues.percentage =
+          +currentValues.currentVal && +currentValues.targetVal
+            ? (
+                ((currentValues.currentVal || 0) /
+                  (currentValues.targetVal || 0)) *
+                100
+              ).toFixed(+pageConfigInfo?.percentageFormat || 0)
+            : '0';
+        // 设置显示值
+        currentValues.targetValStr = `${currentValues.targetVal}${
+          pageConfigInfo?.unit === '无' ? '' : pageConfigInfo?.unit
+        }`;
+        currentValues.currentValStr = `${currentValues.currentVal}${
+          pageConfigInfo?.unit === '无' ? '' : pageConfigInfo?.unit
+        }`;
+      }
       setRenderData(currentValues);
       // const tableList = await base.getTableList();
       // log('view tableList=>', tableList);
@@ -507,24 +548,39 @@ export default function ProgressBar() {
   }, [JSON.stringify(pageConfig)]);
 
   useEffect(() => {
-    if (
-      dashboard.state === DashboardState.Config ||
-      dashboard.state === DashboardState.Create
-    ) {
-      drawChart();
-    }
+    // if (
+    //   dashboard.state === DashboardState.Config ||
+    //   dashboard.state === DashboardState.Create
+    // ) {
+
+    // }
+    drawChart();
   }, [pageConfig?.color]);
 
   useEffect(() => {
     if (isCreate) {
-      setConfig({
+      setPageConfig({
         target: new Date().getTime(),
-        color: 'var(--ccm-chart-N700)',
-        units: defaultUnits,
-        title: t('target.remain'),
-        showTitle: false,
-        showCountDown: true,
-        othersConfig: defaultOthersConfig,
+        color: '#373c43',
+        tableSourceSelected: '',
+        dataRangeSelected: '',
+        categoriesSelected: [],
+        // 单位
+        unit: '无',
+        // 格式
+        format: '0',
+        // 百分比格式
+        percentageFormat: '0',
+        // 目标值类型
+        targetValueType: '1',
+        targetValueTypeKind: '',
+        targetValue: '',
+        targetValueComputed: 'sum',
+        // 当前值类型
+        currentValueType: '1',
+        currentValueTypeKind: '',
+        currentValue: '',
+        currentValueComputed: 'sum',
       });
     }
   }, [i18n.language, isCreate]);
@@ -538,21 +594,20 @@ export default function ProgressBar() {
       })}
     >
       <div className="content">
-        <CountdownView
+        <ProgressBarView
           t={t}
+          getData={getData}
+          filterFormRef={filterFormRef}
           availableUnits={availableUnits}
-          // config={config}
           renderData={renderData}
           pageConfig={pageConfig}
-          key={config.target}
+          key={pageConfig.target}
           isConfig={isConfig}
         />
       </div>
       {isConfig ? (
         <ConfigPanel
           t={t}
-          config={config}
-          setConfig={setConfig}
           pageConfig={pageConfig}
           setPageConfig={setPageConfig}
           availableUnits={availableUnits}
@@ -569,29 +624,42 @@ export default function ProgressBar() {
   );
 }
 
-interface ICountdownView {
-  config: ICountDownConfig;
+interface IProgressBarView {
   pageConfig: any;
   isConfig: boolean;
   renderData: any;
+  filterFormRef: any;
+  getData: any;
   t: TFunction<'translation', undefined>;
   availableUnits: ReturnType<typeof getAvailableUnits>;
 }
-function CountdownView({
+function ProgressBarView({
   pageConfig,
   isConfig,
   availableUnits,
   t,
+  filterFormRef,
+  getData,
   renderData,
-}: ICountdownView) {
-  const filterFormRef = useRef();
-
+}: IProgressBarView) {
   const { targetVal, targetValStr, currentVal, currentValStr, percentage } =
     renderData;
   const { categoriesSelected } = pageConfig;
   const categoriesSelectedDatas = (categoriesSelected || []).map(
     (cItem: string) => JSON.parse(cItem)
   );
+
+  useEffect(() => {
+    const resizeChart = () => {
+      myChart?.resize();
+    };
+
+    window.addEventListener('resize', resizeChart);
+
+    return () => {
+      window.removeEventListener('resize', resizeChart);
+    };
+  }, []);
 
   // const [time, setTime] = useState(target ?? 0);
   // useEffect(() => {
@@ -614,7 +682,9 @@ function CountdownView({
           layout="horizontal"
           style={{ padding: 10, width: '100%' }}
           onValueChange={(values) => {
-            console.log(values);
+            getData({
+              filterFormValues: values,
+            });
           }}
         >
           <Row
@@ -646,7 +716,7 @@ function CountdownView({
                       field={cItem?.fieldId}
                       label={cItem?.fieldName}
                       style={{ width: '100%' }}
-                      // format="yyyy-MM-dd"
+                      format="yyyy/MM/dd"
                       // onChange={(date: any, dataString: string) => {
                       //   // console.log('date =>', date, dataString);
                       //   // 设置表单值为 dataString
@@ -685,20 +755,19 @@ function CountdownView({
         style={{
           width: '100%',
           height: '50px',
+          marginTop: '20px',
         }}
       ></div>
     </div>
   );
 }
 
-/** 格式化显示时间 */
-function convertTimestamp(timestamp: number) {
-  return dayjs(timestamp / 1000).format('YYYY-MM-DD HH:mm:ss');
-}
+// /** 格式化显示时间 */
+// function convertTimestamp(timestamp: number) {
+//   return dayjs(timestamp / 1000).format('YYYY-MM-DD HH:mm:ss');
+// }
 
 function ConfigPanel(props: {
-  config: ICountDownConfig;
-  setConfig: React.Dispatch<React.SetStateAction<ICountDownConfig>>;
   pageConfig: any;
   setPageConfig: any;
   tableList: any[];
@@ -712,14 +781,9 @@ function ConfigPanel(props: {
   setCategories: React.Dispatch<React.SetStateAction<any[]>>;
 }) {
   const {
-    config,
-    setConfig,
     pageConfig,
     setPageConfig,
-    availableUnits,
     t,
-    tableList,
-    tableFileds,
     tableSource,
     dataRange,
     setDataRange,
@@ -736,16 +800,17 @@ function ConfigPanel(props: {
 
   const resetPageConfig = (opt?: any) => {
     setPageConfig({
+      target: new Date().getTime(),
       color: '#373c43',
       tableSourceSelected: '',
       dataRangeSelected: '',
       categoriesSelected: [],
       // 单位
-      unit: '0',
+      unit: '无',
       // 格式
-      format: '1',
+      format: '0',
       // 百分比格式
-      percentageFormat: '1',
+      percentageFormat: '0',
       // 目标值类型
       targetValueType: '1',
       targetValueTypeKind: '',
@@ -762,12 +827,16 @@ function ConfigPanel(props: {
     <div
       className="config-panel"
       style={{
-        // maxHeight: 'calc(100% - 100px)',
         overflow: 'auto',
         // paddingBottom: '100px',
       }}
     >
       <div
+        style={{
+          height: 'calc(100vh - 100px)',
+          overflow: 'auto',
+          // paddingBottom: '100px',
+        }}
         className="form"
         // style={{
         //   maxHeight: 'calc(100% - 100px)',
@@ -778,14 +847,14 @@ function ConfigPanel(props: {
         <Item label="数据源">
           <Select
             value={pageConfig?.tableSourceSelected}
-            style={{ width: 200 }}
+            style={{ width: '100%' }}
             onChange={async (val) => {
               const [tableRanges, categories] = await Promise.all([
                 getTableRange(val),
                 getCategories(val),
               ]);
-              setDataRange(tableRanges);
-              setCategories(categories);
+              setDataRange([...tableRanges]);
+              setCategories([...categories]);
               resetPageConfig({
                 tableSourceSelected: val,
                 color: pageConfig.color,
@@ -799,7 +868,8 @@ function ConfigPanel(props: {
         </Item>
         <Item label="数据范围">
           <Select
-            style={{ width: 200 }}
+            style={{ width: '100%' }}
+            key={`${pageConfig?.tableSourceSelected}-dataRange`}
             value={
               pageConfig?.dataRangeSelected
                 ? JSON.stringify(pageConfig?.dataRangeSelected)
@@ -830,7 +900,8 @@ function ConfigPanel(props: {
         <Item label="选择器">
           <Select
             mode="multiple"
-            style={{ width: 200 }}
+            style={{ width: '100%' }}
+            key={`${pageConfig?.tableSourceSelected}-categories`}
             value={pageConfig?.categoriesSelected}
             onChange={(val) => {
               setPageConfig({
@@ -839,13 +910,19 @@ function ConfigPanel(props: {
               });
             }}
             options={categories
-              .filter((cItem) => cItem.fieldType === 1 || cItem.fieldType === 5)
+              .filter((cItem) => cItem.fieldType === 5)
               .map((category) => {
                 return {
                   value: JSON.stringify(category),
                   label: category.fieldName,
                 };
               })}
+          />
+          <Banner
+            type="warning"
+            style={{ marginTop: '10px' }}
+            closeIcon={null}
+            description="当前仅支持日期格式的筛选能力"
           />
         </Item>
         {/* targetValueType: 1,
@@ -855,6 +932,10 @@ function ConfigPanel(props: {
         currentValue: '', */}
         <Item label="目标值">
           <RadioGroup
+            type="button"
+            style={{
+              background: '#f0f0f0',
+            }}
             value={pageConfig?.targetValueType}
             aria-label=""
             name="demo-radio-group"
@@ -871,7 +952,8 @@ function ConfigPanel(props: {
           {pageConfig?.targetValueType === '1' ? (
             <InputNumber
               hideButtons
-              style={{ width: 200, marginTop: '10px' }}
+              placeholder={'请输入目标值'}
+              style={{ width: '100%', marginTop: '10px' }}
               value={pageConfig?.targetValue}
               onChange={(val) => {
                 setPageConfig({
@@ -883,11 +965,11 @@ function ConfigPanel(props: {
           ) : null}
           {pageConfig?.targetValueType === '2' ? (
             <Select
-              style={{ width: 200, marginTop: '10px' }}
+              style={{ width: '100%', marginTop: '10px' }}
               value={pageConfig?.targetValueTypeKind}
               options={[
                 {
-                  label: '统计记录总数',
+                  label: '统计字段总数',
                   value: 'COUNTA',
                 },
                 {
@@ -906,7 +988,7 @@ function ConfigPanel(props: {
           {pageConfig?.targetValueType === '2' &&
           pageConfig?.targetValueTypeKind === 'VALUE' ? (
             <Select
-              style={{ width: 200, marginTop: '10px' }}
+              style={{ width: '100%', marginTop: '10px' }}
               value={pageConfig?.targetValue}
               options={categories
                 .filter(
@@ -929,7 +1011,7 @@ function ConfigPanel(props: {
             <div>
               <span>计算方式：</span>
               <Select
-                style={{ width: 200, marginTop: '10px' }}
+                style={{ width: '229px', marginTop: '10px' }}
                 value={pageConfig?.targetValueComputed}
                 onChange={(val) => {
                   setPageConfig({
@@ -961,10 +1043,14 @@ function ConfigPanel(props: {
         </Item>
         <Item label="当前值">
           <RadioGroup
+            type="button"
             // value={value}
             value={pageConfig?.currentValueType}
             aria-label=""
             name="demo-radio-group"
+            style={{
+              background: '#f0f0f0',
+            }}
             onChange={(e) => {
               setPageConfig({
                 ...pageConfig,
@@ -977,8 +1063,9 @@ function ConfigPanel(props: {
           </RadioGroup>
           {pageConfig?.currentValueType === '1' ? (
             <InputNumber
-              style={{ width: 200, marginTop: '10px' }}
+              style={{ width: '100%', marginTop: '10px' }}
               hideButtons
+              placeholder={'请输入当前值'}
               value={pageConfig?.currentValue}
               onChange={(val) => {
                 setPageConfig({
@@ -990,11 +1077,11 @@ function ConfigPanel(props: {
           ) : null}
           {pageConfig?.currentValueType === '2' ? (
             <Select
-              style={{ width: 200, marginTop: '10px' }}
+              style={{ width: '100%', marginTop: '10px' }}
               value={pageConfig?.currentValueTypeKind}
               options={[
                 {
-                  label: '统计记录总数',
+                  label: '统计字段总数',
                   value: 'COUNTA',
                 },
                 {
@@ -1013,7 +1100,7 @@ function ConfigPanel(props: {
           {pageConfig?.currentValueType === '2' &&
           pageConfig?.currentValueTypeKind === 'VALUE' ? (
             <Select
-              style={{ width: 200, marginTop: '10px' }}
+              style={{ width: '100%', marginTop: '10px' }}
               value={pageConfig?.currentValue}
               options={categories
                 .filter(
@@ -1036,7 +1123,7 @@ function ConfigPanel(props: {
             <div>
               <span>计算方式：</span>
               <Select
-                style={{ width: 200, marginTop: '10px' }}
+                style={{ width: '229px', marginTop: '10px' }}
                 value={pageConfig?.currentValueComputed}
                 onChange={(val) => {
                   setPageConfig({
@@ -1080,7 +1167,7 @@ function ConfigPanel(props: {
         <Item label="单位">
           <Select
             value={pageConfig?.unit}
-            style={{ width: 200 }}
+            style={{ width: '100%' }}
             onChange={(val) => {
               setPageConfig({
                 ...pageConfig,
@@ -1089,8 +1176,12 @@ function ConfigPanel(props: {
             }}
             options={[
               {
-                value: '',
+                value: '无',
                 label: '无',
+              },
+              {
+                value: '个',
+                label: '个',
               },
               {
                 value: '千',
@@ -1118,7 +1209,7 @@ function ConfigPanel(props: {
         <Item label="格式">
           <Select
             value={pageConfig?.format}
-            style={{ width: 200 }}
+            style={{ width: '100%' }}
             onChange={(val) => {
               setPageConfig({
                 ...pageConfig,
@@ -1144,7 +1235,7 @@ function ConfigPanel(props: {
         <Item label="百分比格式">
           <Select
             value={pageConfig?.percentageFormat}
-            style={{ width: 200 }}
+            style={{ width: '100%' }}
             onChange={(val) => {
               setPageConfig({
                 ...pageConfig,
