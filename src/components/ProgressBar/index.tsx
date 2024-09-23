@@ -1,3 +1,4 @@
+// no-check
 import './style.scss';
 import React, { useMemo } from 'react';
 import {
@@ -17,8 +18,9 @@ import {
   Radio,
   InputNumber,
   Banner,
+  Button,
 } from '@douyinfe/semi-ui';
-import { Button, Select } from 'antd';
+import { Select } from 'antd';
 import { useState, useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
 // import { getTime } from './utils';
@@ -104,7 +106,7 @@ const getCategories = (tableId: string) => {
 export default function ProgressBar() {
   const { t, i18n } = useTranslation();
 
-  const filterFormRef = useRef();
+  const filterFormRef: any = useRef();
 
   // create时的默认配置new
   const [pageConfig, setPageConfig] = useState<any>({
@@ -373,7 +375,9 @@ export default function ProgressBar() {
         (await table.getRecords({ pageSize: 5000 })).records || [];
       const filterFormValues =
         obj?.filterFormValues ||
-        filterFormRef?.current?.formApi.getValues() ||
+        (filterFormRef?.current && filterFormRef?.current?.formApi
+          ? filterFormRef?.current?.formApi.getValues()
+          : {}) ||
         {};
       const filterFormValuesKeys = Object.keys(filterFormValues);
       let records = [];
