@@ -77,18 +77,6 @@
   flex-shrink: 0;
 }
 
-.number {
-  font-family: DIN Alternate;
-  font-size: 12vmax;
-  font-weight: 700;
-  line-height: 1em;
-  text-align: center;
-}
-
-.number-config {
-  font-size: 8vmax;
-}
-
 .number-title {
   font-family: PingFang SC;
   font-size: 2vmax;
@@ -120,15 +108,36 @@
   justify-content: space-between;
 }
 
+.progress-bar-view {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  text-align: center;
+  overflow: hidden;
+  > div {
+    width: 100%;
+  }
+}
+
 .progress-info {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 20px;
   font-weight: bold;
-  margin-top: 20px;
+  margin-bottom: 10px;
+  word-spacing: 1px;
+  span.number {
+    font-family: DIN_NUM;
+  }
   .line {
-    color: #999;
-    padding: 0 5px;
+    border-left: 1px solid #e0e0e0;
+    margin: 0 5px;
+  }
+}
+
+.semi-portal {
+  .semi-portal-inner {
+    top: 0 !important;
+    left: 10 !important;
   }
 }
