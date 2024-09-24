@@ -31,6 +31,7 @@ import { useTranslation } from 'react-i18next';
 import { TFunction } from 'i18next/typescript/t';
 import { ColorPicker } from '../ColorPicker';
 import { Item } from '../Item';
+import { NUMBER_FORMAT_ENU, formatNumber } from './contant';
 
 let myChart: any = null; // echarts实例
 
@@ -204,6 +205,9 @@ export default function ProgressBar() {
     if (currentVal - targetVal > 0) {
       showCurrentVal = targetVal;
     }
+    // 最大宽度 22
+    let barWidth = Math.min(60, (window.innerWidth / 280) * 20);
+    barWidth = Math.max(10, barWidth);
     // 绘制图表
     const option = {
       title: {
@@ -263,12 +267,12 @@ export default function ProgressBar() {
         {
           name: '条',
           type: 'bar',
-          barWidth: 20,
+          barWidth,
           data: [showCurrentVal || 0],
           // barCategoryGap: 20,
           itemStyle: {
             normal: {
-              barBorderRadius: 10,
+              barBorderRadius: barWidth / 2,
               color: pageConfig.color,
               // color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
               //   {
@@ -293,12 +297,12 @@ export default function ProgressBar() {
           name: '进度条背景',
           type: 'bar',
           barGap: '-100%',
-          barWidth: 20,
+          barWidth,
           data: [targetVal || 100],
           color: '#e0e0e0',
           itemStyle: {
             normal: {
-              barBorderRadius: 10,
+              barBorderRadius: barWidth / 2,
             },
           },
         },
@@ -540,7 +544,7 @@ export default function ProgressBar() {
 
   useEffect(() => {
     drawChart();
-  }, [JSON.stringify(renderData)]);
+  }, [JSON.stringify(renderData), pageConfig?.color]);
 
   useEffect(() => {
     if (
@@ -552,16 +556,6 @@ export default function ProgressBar() {
   }, [JSON.stringify(pageConfig)]);
 
   useEffect(() => {
-    // if (
-    //   dashboard.state === DashboardState.Config ||
-    //   dashboard.state === DashboardState.Create
-    // ) {
-
-    // }
-    drawChart();
-  }, [pageConfig?.color]);
-
-  useEffect(() => {
     if (isCreate) {
       setPageConfig({
         target: new Date().getTime(),
@@ -571,7 +565,7 @@ export default function ProgressBar() {
         categoriesSelected: [],
         // 单位
         unit: '无',
-        // 格式
+        // 精度
         format: '0',
         // 百分比格式
         percentageFormat: '0',
@@ -579,12 +573,15 @@ export default function ProgressBar() {
         targetValueType: '1',
         targetValueTypeKind: '',
         targetValue: '',
-        targetValueComputed: 'sum',
+        // 格式
+        targetFormat: '0',
         // 当前值类型
         currentValueType: '1',
         currentValueTypeKind: '',
         currentValue: '',
-        currentValueComputed: 'sum',
+        currentFormat: '0',
+        currentValueWarn: false,
+        ...opt,
       });
     }
   }, [i18n.language, isCreate]);
@@ -607,6 +604,7 @@ export default function ProgressBar() {
           pageConfig={pageConfig}
           key={pageConfig.target}
           isConfig={isConfig}
+          drawChart={drawChart}
         />
       </div>
       {isConfig ? (
@@ -634,9 +632,12 @@ interface IProgressBarView {
   renderData: any;
   filterFormRef: any;
   getData: any;
+  drawChart: any;
   t: TFunction<'translation', undefined>;
   availableUnits: ReturnType<typeof getAvailableUnits>;
 }
+
+// 展示端
 function ProgressBarView({
   pageConfig,
   isConfig,
@@ -645,19 +646,33 @@ function ProgressBarView({
   filterFormRef,
   getData,
   renderData,
+  drawChart,
 }: IProgressBarView) {
   const { targetVal, targetValStr, currentVal, currentValStr, percentage } =
     renderData;
-  const { categoriesSelected } = pageConfig;
+  const { categoriesSelected, targetFormat, currentFormat, format } =
+    pageConfig;
   const categoriesSelectedDatas = (categoriesSelected || []).map(
     (cItem: string) => JSON.parse(cItem)
   );
 
-  useEffect(() => {
-    const resizeChart = () => {
-      myChart?.resize();
-    };
+  const [fontSize, setFontSize] = useState('5vw');
+  const [innerWidth, setInnerWidth] = useState(window.innerWidth);
 
+  // 窗口变更 重新绘制
+  const resizeChart = () => {
+    setInnerWidth(window.innerWidth);
+    // 更新交互
+    // myChart?.resize();
+    drawChart();
+    // 更新字体大小
+    let fontSizeNum = (window.innerWidth / 187) * 1;
+    fontSizeNum = Math.min(5, fontSizeNum);
+    fontSizeNum = Math.max(5, fontSizeNum);
+    setFontSize(`${fontSizeNum}vw`);
+  };
+
+  useEffect(() => {
     window.addEventListener('resize', resizeChart);
 
     return () => {
@@ -677,91 +692,120 @@ function ProgressBarView({
   //     clearInterval(timer);
   //   };
   // }, []);
-
   return (
-    <div style={{ width: '100vw', textAlign: 'center', overflow: 'hidden' }}>
+    <div className="progress-bar-view">
       <div>
-        <Form
-          ref={filterFormRef}
-          layout="horizontal"
-          style={{ padding: 10, width: '100%' }}
-          onValueChange={(values) => {
-            getData({
-              filterFormValues: values,
-            });
+        <div
+          style={{
+            display: categoriesSelectedDatas.length > 0 ? 'block' : 'none',
+            marginBottom: '10px',
           }}
         >
-          <Row
-            style={{
-              width: '100%',
+          <Form
+            ref={filterFormRef}
+            layout="horizontal"
+            style={{ padding: 10, width: '100%' }}
+            onValueChange={(values) => {
+              getData({
+                filterFormValues: values,
+              });
             }}
           >
-            {categoriesSelectedDatas.map((cItem: any) => {
-              const { fieldType } = cItem;
-              if (fieldType === 1) {
-                return (
-                  <Col span={12} key={`filter-${cItem?.fieldId}`}>
-                    <Form.Input
-                      field={cItem?.fieldId}
-                      label={cItem?.fieldName}
-                      // initValue={'mikeya'}
-                      // style={{ width: '90%' }}
-                      trigger="blur"
-                    />
-                  </Col>
-                );
-              } else if (fieldType === 5) {
-                return (
-                  <Col span={12} key={`filter-${cItem?.fieldId}`}>
-                    <Form.DatePicker
-                      type="date"
-                      insetInput
-                      onChangeWithDateFirst={false}
-                      field={cItem?.fieldId}
-                      label={cItem?.fieldName}
-                      style={{ width: '100%' }}
-                      format="yyyy/MM/dd"
-                      // onChange={(date: any, dataString: string) => {
-                      //   // console.log('date =>', date, dataString);
-                      //   // 设置表单值为 dataString
-                      //   filterFormRef.current.formApi.setValue(
-                      //     cItem?.fieldId,
-                      //     '1111'
-                      //   );
-                      // }}
-                      // initValue={new Date()}
-                      placeholder="请选择日期"
-                    />
-                  </Col>
-                );
-              }
-              return '';
-            })}
-          </Row>
-        </Form>
-      </div>
-      <div className="progress-info">
-        <span>
-          <span
-            style={{
-              color: pageConfig.color,
-            }}
-          >
-            {currentValStr || '-'}
+            <Row
+              style={{
+                width: '100%',
+              }}
+            >
+              {categoriesSelectedDatas.map((cItem: any) => {
+                const { fieldType } = cItem;
+                if (fieldType === 1) {
+                  return (
+                    <Col
+                      span={innerWidth < 500 ? 24 : 12}
+                      key={`filter-${cItem?.fieldId}`}
+                      style={{
+                        marginTop: innerWidth < 500 ? '5px' : '0',
+                      }}
+                    >
+                      <Form.Input
+                        field={cItem?.fieldId}
+                        label={cItem?.fieldName}
+                        // initValue={'mikeya'}
+                        // style={{ width: '90%' }}
+                        trigger="blur"
+                      />
+                    </Col>
+                  );
+                } else if (fieldType === 5) {
+                  return (
+                    <Col
+                      span={innerWidth < 500 ? 24 : 12}
+                      key={`filter-${cItem?.fieldId}`}
+                      style={{
+                        marginTop: innerWidth < 500 ? '5px' : '0px',
+                      }}
+                    >
+                      <Form.DatePicker
+                        type="date"
+                        insetInput
+                        onChangeWithDateFirst={false}
+                        field={cItem?.fieldId}
+                        label={cItem?.fieldName}
+                        style={{ width: '100%' }}
+                        format="yyyy/MM/dd"
+                        // onChange={(date: any, dataString: string) => {
+                        //   // console.log('date =>', date, dataString);
+                        //   // 设置表单值为 dataString
+                        //   filterFormRef.current.formApi.setValue(
+                        //     cItem?.fieldId,
+                        //     '1111'
+                        //   );
+                        // }}
+                        // initValue={new Date()}
+                        placeholder="请选择日期"
+                      />
+                    </Col>
+                  );
+                }
+                return '';
+              })}
+            </Row>
+          </Form>
+        </div>
+        <div
+          className="progress-info"
+          style={{
+            fontSize,
+          }}
+        >
+          <span>
+            <span
+              className="number"
+              style={{
+                color: pageConfig.color,
+              }}
+            >
+              {currentVal && currentVal !== '-'
+                ? formatNumber(currentVal, currentFormat, format)
+                : '-'}
+            </span>
+            <span className="line"></span>
+            <span className="number">
+              {targetVal && targetVal !== '-'
+                ? formatNumber(targetVal, targetFormat, format)
+                : '-'}
+            </span>
           </span>
-          <span className="line">|</span>
-          <span>{targetValStr || '-'}</span>
-        </span>
-        <span>{percentage || '-'}%</span>
+          <span className="number">{percentage || '-'}%</span>
+        </div>
+        <div
+          id="main"
+          style={{
+            width: '100%',
+            height: '40px',
+          }}
+        ></div>
       </div>
-      <div
-        id="main"
-        style={{
-          width: '100%',
-          height: '50px',
-          marginTop: '20px',
-        }}
-      ></div>
     </div>
   );
 }
@@ -770,6 +814,8 @@ function ProgressBarView({
 // function convertTimestamp(timestamp: number) {
 //   return dayjs(timestamp / 1000).format('YYYY-MM-DD HH:mm:ss');
 // }
+
+// 配置端
 
 function ConfigPanel(props: {
   pageConfig: any;
@@ -811,7 +857,7 @@ function ConfigPanel(props: {
       categoriesSelected: [],
       // 单位
       unit: '无',
-      // 格式
+      // 精度
       format: '0',
       // 百分比格式
       percentageFormat: '0',
@@ -819,10 +865,14 @@ function ConfigPanel(props: {
       targetValueType: '1',
       targetValueTypeKind: '',
       targetValue: '',
+      // 格式
+      targetFormat: '0',
       // 当前值类型
       currentValueType: '1',
       currentValueTypeKind: '',
       currentValue: '',
+      currentFormat: '0',
+      currentValueWarn: false,
       ...opt,
     });
   };
@@ -960,6 +1010,7 @@ function ConfigPanel(props: {
               placeholder={'请输入目标值'}
               style={{ width: '100%', marginTop: '10px' }}
               value={pageConfig?.targetValue}
+              maxLength={16}
               onChange={(val) => {
                 setPageConfig({
                   ...pageConfig,
@@ -1045,6 +1096,20 @@ function ConfigPanel(props: {
               ></Select>
             </div>
           ) : null}
+          <div className="m-t-10">
+            <span className="m-r-10">格式：</span>
+            <Select
+              value={pageConfig?.targetFormat}
+              style={{ width: '229px', marginTop: '10px' }}
+              onChange={(val) => {
+                setPageConfig({
+                  ...pageConfig,
+                  targetFormat: val,
+                });
+              }}
+              options={NUMBER_FORMAT_ENU}
+            />
+          </div>
         </Item>
         <Item label="当前值">
           <RadioGroup
@@ -1071,6 +1136,7 @@ function ConfigPanel(props: {
               style={{ width: '100%', marginTop: '10px' }}
               hideButtons
               placeholder={'请输入当前值'}
+              maxLength={16}
               value={pageConfig?.currentValue}
               onChange={(val) => {
                 setPageConfig({
@@ -1098,31 +1164,48 @@ function ConfigPanel(props: {
                 setPageConfig({
                   ...pageConfig,
                   currentValueTypeKind: val,
+                  currentValue: null,
                 });
               }}
             ></Select>
           ) : null}
           {pageConfig?.currentValueType === '2' &&
           pageConfig?.currentValueTypeKind === 'VALUE' ? (
+            // 99002 进度 99003 金额 99004 评分 2 数值
             <Select
               style={{ width: '100%', marginTop: '10px' }}
               value={pageConfig?.currentValue}
-              options={categories
-                .filter(
-                  (cItem) => cItem.fieldType === 19 || cItem.fieldType === 2
-                )
+              options={(categories || [])
+                // .filter((cItem) =>
+                //   [2, 19, 99002, 99003, 99004].includes(cItem.fieldType)
+                // )
                 .map((category) => ({
                   label: category.fieldName,
                   value: category.fieldId,
+                  type: category.fieldType,
                 }))}
-              onChange={(val) => {
+              onChange={(val, obj: any) => {
                 setPageConfig({
                   ...pageConfig,
                   currentValue: val,
+                  currentValueWarn: ![2, 19, 99002, 99003, 99004].includes(
+                    obj.type
+                  ),
                 });
               }}
             ></Select>
           ) : null}
+          {
+            // 99002 进度 99003 金额 99004 评分 2 数值 异常警告
+            pageConfig?.currentValueWarn ? (
+              <Banner
+                type="warning"
+                style={{ marginTop: '10px' }}
+                closeIcon={null}
+                description="当前字段格式类型不支持计算，请确认字段类型为数值类型"
+              />
+            ) : null
+          }
           {pageConfig?.currentValueType === '2' &&
           pageConfig?.currentValueTypeKind === 'VALUE' ? (
             <div>
@@ -1157,6 +1240,20 @@ function ConfigPanel(props: {
               ></Select>
             </div>
           ) : null}
+          <div className="m-t-10">
+            <span className="m-r-10">格式：</span>
+            <Select
+              value={pageConfig?.currentFormat}
+              style={{ width: '229px', marginTop: '10px' }}
+              onChange={(val) => {
+                setPageConfig({
+                  ...pageConfig,
+                  currentFormat: val,
+                });
+              }}
+              options={NUMBER_FORMAT_ENU}
+            />
+          </div>
         </Item>
         <Item label={'颜色'}>
           <ColorPicker
@@ -1211,7 +1308,7 @@ function ConfigPanel(props: {
             ]}
           />
         </Item>
-        <Item label="格式">
+        <Item label="精度">
           <Select
             value={pageConfig?.format}
             style={{ width: '100%' }}
