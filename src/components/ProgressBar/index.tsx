@@ -148,9 +148,7 @@ export default function ProgressBar() {
 
   const [renderData, setRenderData] = useState<any>({
     targetVal: '',
-    targetValStr: '',
     currentVal: '',
-    currentValStr: '',
     percentage: '',
   });
 
@@ -214,7 +212,10 @@ export default function ProgressBar() {
     myChart = echarts.init(document.getElementById('main'));
     if (currentVal - targetVal > 0) {
       showCurrentVal = targetVal;
+    } else if (currentVal) {
+      showCurrentVal = Math.max(targetVal / 20, currentVal);
     }
+
     if (
       dashboard.state === DashboardState.Config ||
       dashboard.state === DashboardState.Create
@@ -441,49 +442,43 @@ export default function ProgressBar() {
       };
       if (
         dashboard.state === DashboardState.View &&
-        !pageConfigInfo?.targetValue &&
-        !pageConfigInfo?.currentValue
+        (!pageConfigInfo?.targetValue || !pageConfigInfo?.currentValue)
       ) {
         currentValues.targetVal = '-';
         currentValues.currentVal = '-';
         currentValues.percentage = '-';
-        // 设置显示值
-        currentValues.targetValStr = '-';
-        currentValues.currentValStr = '-';
         setRenderData(currentValues);
         return;
       }
+      // 设置目标值
+      if (!pageConfigInfo?.targetValue) {
+        currentValues.targetVal = '-';
+      } else if (pageConfigInfo?.targetValueType === '1') {
+        // 自定义值
+        currentValues.targetVal = (+pageConfigInfo?.targetValue).toFixed(
+          +pageConfigInfo?.format || 0
+        );
+      } else if (
+        pageConfigInfo?.targetValueType === '2' &&
+        pageConfigInfo?.targetValueTypeKind === 'COUNTA'
+      ) {
+        // 多维表格数据字段数值
+        currentValues.targetVal = Object.keys(records[0].fields).length;
+      } else if (pageConfigInfo?.targetValueType === '2') {
+        // 多维表格数据
+        const arr: any = [];
+        records.forEach((record: any) => {
+          arr.push(record.fields[pageConfigInfo?.targetValue]);
+        });
+        currentValues.targetVal = +(+computeValue(
+          arr,
+          pageConfigInfo?.targetValueComputed
+        )).toFixed(+pageConfigInfo?.format || 0);
+      }
       if (records.length) {
-        // 设置目标值
-        if (!pageConfigInfo?.targetValue) {
-          currentValues.targetVal = '-';
-          currentValues.targetValStr = '-';
-        } else if (pageConfigInfo?.targetValueType === '1') {
-          // 自定义值
-          currentValues.targetVal = (+pageConfigInfo?.targetValue).toFixed(
-            +pageConfigInfo?.format || 0
-          );
-        } else if (
-          pageConfigInfo?.targetValueType === '2' &&
-          pageConfigInfo?.targetValueTypeKind === 'COUNTA'
-        ) {
-          // 多维表格数据字段数值
-          currentValues.targetVal = Object.keys(records[0].fields).length;
-        } else if (pageConfigInfo?.targetValueType === '2') {
-          // 多维表格数据
-          const arr: any = [];
-          records.forEach((record: any) => {
-            arr.push(record.fields[pageConfigInfo?.targetValue]);
-          });
-          currentValues.targetVal = (+computeValue(
-            arr,
-            pageConfigInfo?.targetValueComputed
-          )).toFixed(+pageConfigInfo?.format || 0);
-        }
         // 设置当前值
         if (!pageConfigInfo?.currentValue) {
           currentValues.currentVal = '-';
-          currentValues.currentValStr = '-';
         } else if (pageConfigInfo?.currentValueType === '1') {
           // 自定义值
           currentValues.currentVal = (+pageConfigInfo?.currentValue).toFixed(
@@ -508,30 +503,23 @@ export default function ProgressBar() {
           )).toFixed(+pageConfigInfo?.format || 0);
         }
       } else {
-        currentValues.targetVal = (0).toFixed(+pageConfigInfo?.format || 0);
-        currentValues.currentVal = (0).toFixed(+pageConfigInfo?.format || 0);
+        currentValues.currentVal = +(0).toFixed(+pageConfigInfo?.format || 0);
+        currentValues.percentage = (0).toFixed(
+          +pageConfigInfo?.percentageFormat || 0
+        );
+        setRenderData(currentValues);
+        return;
       }
 
-      if (!pageConfigInfo?.targetValue || !pageConfigInfo?.currentValue) {
-        currentValues.percentage = '-';
-      } else {
-        // 设置百分比
-        currentValues.percentage =
-          +currentValues.currentVal && +currentValues.targetVal
-            ? (
-                ((currentValues.currentVal || 0) /
-                  (currentValues.targetVal || 0)) *
-                100
-              ).toFixed(+pageConfigInfo?.percentageFormat || 0)
-            : '0';
-        // 设置显示值
-        currentValues.targetValStr = `${currentValues.targetVal}${
-          pageConfigInfo?.unit === '无' ? '' : pageConfigInfo?.unit
-        }`;
-        currentValues.currentValStr = `${currentValues.currentVal}${
-          pageConfigInfo?.unit === '无' ? '' : pageConfigInfo?.unit
-        }`;
-      }
+      // 设置百分比
+      currentValues.percentage =
+        +currentValues.currentVal && +currentValues.targetVal
+          ? (
+              ((currentValues.currentVal || 0) /
+                (currentValues.targetVal || 0)) *
+              100
+            ).toFixed(+pageConfigInfo?.percentageFormat || 0)
+          : '0';
       setRenderData(currentValues);
       // const tableList = await base.getTableList();
       // log('view tableList=>', tableList);
@@ -638,8 +626,7 @@ function ProgressBarView({
   renderData,
   barWidth,
 }: IProgressBarView) {
-  const { targetVal, targetValStr, currentVal, currentValStr, percentage } =
-    renderData;
+  const { targetVal, currentVal, percentage } = renderData;
   const { categoriesSelected, targetFormat, currentFormat, format, unit } =
     pageConfig;
   const categoriesSelectedDatas = (categoriesSelected || []).map(
@@ -797,13 +784,13 @@ function ProgressBarView({
                 color: pageConfig.color,
               }}
             >
-              {currentVal && currentVal !== '-'
+              {!Number.isNaN(+currentVal) && targetVal !== '-'
                 ? `${formatNumber(currentVal, currentFormat, format)}${unit}`
                 : '-'}
             </span>
             <span className="line"></span>
             <span className="number">
-              {targetVal && targetVal !== '-'
+              {!Number.isNaN(+targetVal) && targetVal !== '-'
                 ? `${formatNumber(targetVal, targetFormat, format)}${unit}`
                 : '-'}
             </span>
