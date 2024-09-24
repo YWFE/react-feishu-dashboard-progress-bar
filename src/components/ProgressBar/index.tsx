@@ -49,7 +49,7 @@ const configDefault = {
   dataRangeSelected: '',
   categoriesSelected: [],
   // 单位
-  unit: '无',
+  unit: '',
   // 精度
   format: '0',
   // 百分比格式
