@@ -572,7 +572,6 @@ export default function ProgressBar() {
     if (isCreate) {
       setPageConfig({
         ...configDefault,
-        ...opt,
       });
     }
   }, [i18n.language, isCreate]);
