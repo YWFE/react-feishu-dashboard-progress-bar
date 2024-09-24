@@ -33,6 +33,15 @@
   border-left: var(--divider) 0.5px solid;
   padding: 20px;
   box-sizing: border-box;
+  .categories-selected-otherConfig-item {
+    margin-top: 10px;
+    &:first-child {
+      margin-top: 0px;
+    }
+  }
+  .categories-selected-otherConfig-item-label {
+    display: inline-block;
+  }
 }
 
 .form {
@@ -139,5 +148,12 @@
   .semi-portal-inner {
     top: 0 !important;
     left: 10 !important;
+  }
+}
+
+.semi-datepicker {
+  background-color: #f0f0f0;
+  .semi-datepicker-container {
+    background-color: #fff;
   }
 }

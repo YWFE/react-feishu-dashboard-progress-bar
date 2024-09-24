@@ -19,7 +19,11 @@ import {
   InputNumber,
   Banner,
   Button,
+  Checkbox,
+  Tag,
+  DatePicker,
 } from '@douyinfe/semi-ui';
+import { IconConfigStroked } from '@douyinfe/semi-icons';
 import { Select } from 'antd';
 import { useState, useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
@@ -32,6 +36,7 @@ import { TFunction } from 'i18next/typescript/t';
 import { ColorPicker } from '../ColorPicker';
 import { Item } from '../Item';
 import { NUMBER_FORMAT_ENU, formatNumber } from './contant';
+import { use } from 'i18next';
 
 let myChart: any = null; // echarts实例
 
@@ -44,10 +49,11 @@ let myChart: any = null; // echarts实例
 //  默认配置
 const configDefault = {
   target: new Date().getTime(),
-  color: '#373c43',
+  color: '#3370ff',
   tableSourceSelected: '',
   dataRangeSelected: '',
   categoriesSelected: [],
+  categoriesSelectedOtherConfig: [],
   // 单位
   unit: '',
   // 精度
@@ -405,17 +411,30 @@ export default function ProgressBar() {
           let isMatch = true;
           filterFormValuesKeys.forEach((key) => {
             let value = null;
+            let isTime = false;
             if (
               categoriesSelectedKeys.find(
                 (cItem: any) => cItem?.fieldId === key
-              )?.fieldType === 5
+              )?.fieldType === 5 &&
+              filterFormValues[key]?.length
             ) {
-              value = new Date(filterFormValues[key]).getTime();
+              isTime = true;
+              value = [
+                new Date(filterFormValues[key][0]).getTime(),
+                new Date(filterFormValues[key][1]).getTime(),
+              ];
             } else {
-              value = filterFormValues[key];
+              value = null;
             }
             if (value) {
-              if (record.fields[key] !== value) {
+              if (isTime) {
+                if (
+                  record.fields[key] < value[0] ||
+                  record.fields[key] > value[1]
+                ) {
+                  isMatch = false;
+                }
+              } else if (record.fields[key] !== value) {
                 isMatch = false;
               }
             }
@@ -627,11 +646,41 @@ function ProgressBarView({
   barWidth,
 }: IProgressBarView) {
   const { targetVal, currentVal, percentage } = renderData;
-  const { categoriesSelected, targetFormat, currentFormat, format, unit } =
-    pageConfig;
-  const categoriesSelectedDatas = (categoriesSelected || []).map(
-    (cItem: string) => JSON.parse(cItem)
-  );
+  const {
+    categoriesSelected,
+    categoriesSelectedOtherConfig,
+    targetFormat,
+    currentFormat,
+    format,
+    unit,
+  } = pageConfig;
+  let categoriesSelectedDatas: any = [];
+  let categoriesSelectedDatasShow: any = [];
+  // 获取选择器配置
+  (categoriesSelected || []).forEach((cItem: string) => {
+    const opt = JSON.parse(cItem);
+    const otherConfig = categoriesSelectedOtherConfig.find(
+      (oItem: any) => oItem?.fieldId === opt?.fieldId
+    );
+    if (otherConfig) {
+      opt.isHide = otherConfig?.isHide;
+      opt.defaultValue = otherConfig?.defaultValue;
+    }
+    if (!opt?.isHide) {
+      categoriesSelectedDatasShow.push(opt);
+    }
+    categoriesSelectedDatas.push(opt);
+  });
+
+  // 初始化表单值
+  let initValues: any = {};
+  categoriesSelectedDatas.forEach((opt: any) => {
+    initValues[opt.fieldId] = opt?.defaultValue
+      ? opt?.defaultValue
+      : opt?.fieldType === 5
+      ? []
+      : '';
+  });
 
   // 获取字体大小
   const getFontSize = () => {
@@ -678,33 +727,27 @@ function ProgressBarView({
       window.removeEventListener('resize', resizeChart);
     };
   }, []);
-
-  // const [time, setTime] = useState(target ?? 0);
-  // useEffect(() => {
-  //   const timer = setInterval(() => {
-  //     setTime((time) => {
-  //       return time - 1;
-  //     });
-  //   }, 1000);
-
-  //   return () => {
-  //     clearInterval(timer);
-  //   };
-  // }, []);
   return (
     <div className="progress-bar-view">
       <div>
         <div
           style={{
-            display: categoriesSelectedDatas.length > 0 ? 'block' : 'none',
+            display:
+              categoriesSelectedDatas.length > 0 &&
+              categoriesSelectedDatasShow.length
+                ? 'block'
+                : 'none',
             marginBottom: '10px',
           }}
         >
           <Form
+            key={`${JSON.stringify(initValues)}`}
             ref={filterFormRef}
             layout="horizontal"
+            initValues={initValues}
             style={{ padding: 10, width: '100%' }}
             onValueChange={(values) => {
+              console.log('values =>', values);
               getData({
                 filterFormValues: values,
               });
@@ -745,7 +788,8 @@ function ProgressBarView({
                       }}
                     >
                       <Form.DatePicker
-                        type="date"
+                        // type="date"
+                        type="dateRange"
                         insetInput
                         onChangeWithDateFirst={false}
                         field={cItem?.fieldId}
@@ -784,13 +828,17 @@ function ProgressBarView({
                 color: pageConfig.color,
               }}
             >
-              {!Number.isNaN(+currentVal) && targetVal !== '-'
+              {!Number.isNaN(+currentVal) &&
+              targetVal !== '-' &&
+              percentage !== ''
                 ? `${formatNumber(currentVal, currentFormat, format)}${unit}`
                 : '-'}
             </span>
             <span className="line"></span>
             <span className="number">
-              {!Number.isNaN(+targetVal) && targetVal !== '-'
+              {!Number.isNaN(+targetVal) &&
+              targetVal !== '-' &&
+              percentage !== ''
                 ? `${formatNumber(targetVal, targetFormat, format)}${unit}`
                 : '-'}
             </span>
@@ -936,9 +984,42 @@ function ConfigPanel(props: {
             key={`${pageConfig?.tableSourceSelected}-categories`}
             value={pageConfig?.categoriesSelected}
             onChange={(val) => {
+              const categoriesSelectedOpt: any = val.map((cItem: string) =>
+                JSON.parse(cItem)
+              );
+              if (val.length === 0) {
+                setPageConfig({
+                  ...pageConfig,
+                  categoriesSelected: val,
+                  categoriesSelectedOtherConfig: [],
+                });
+                return;
+              }
+              const { categoriesSelectedOtherConfig = [] } = pageConfig;
+              const arr: any = [];
+              categoriesSelectedOpt.forEach((cItem: any) => {
+                if (
+                  !categoriesSelectedOtherConfig.find(
+                    (oItem: any) => oItem?.fieldId === cItem?.fieldId
+                  )
+                ) {
+                  arr.push({
+                    ...cItem,
+                    defaultValue: cItem?.fieldType === 5 ? [] : '',
+                    isHide: true,
+                  });
+                } else {
+                  arr.push({
+                    ...categoriesSelectedOtherConfig.find(
+                      (oItem: any) => oItem?.fieldId === cItem?.fieldId
+                    ),
+                  });
+                }
+              });
               setPageConfig({
                 ...pageConfig,
                 categoriesSelected: val,
+                categoriesSelectedOtherConfig: [...arr],
               });
             }}
             options={categories
@@ -957,6 +1038,88 @@ function ConfigPanel(props: {
             description="当前仅支持日期格式的筛选能力"
           />
         </Item>
+        {/* 设置选择器 配置 */}
+        {pageConfig?.categoriesSelectedOtherConfig &&
+        pageConfig?.categoriesSelectedOtherConfig.length ? (
+          <Item label="选择器配置">
+            {pageConfig?.categoriesSelectedOtherConfig.map((cItem: any) => {
+              const { fieldType, fieldName, fieldId, isHide } = cItem;
+              if (fieldType === 5) {
+                return (
+                  <div
+                    className="categories-selected-otherConfig-item"
+                    key={`categoriesSelectedOtherConfig-${fieldId}`}
+                  >
+                    <div>
+                      <Tag
+                        prefixIcon={<IconConfigStroked />}
+                        size="large"
+                        color="light-blue"
+                      >
+                        {fieldName}
+                      </Tag>
+                    </div>
+                    <div className="m-t-5">
+                      <span className="categories-selected-otherConfig-item-label">
+                        默认值：
+                      </span>
+                      <DatePicker
+                        type="dateRange"
+                        value={cItem.defaultValue}
+                        format="yyyy/MM/dd"
+                        onChange={(val) => {
+                          const arr = (
+                            pageConfig.categoriesSelectedOtherConfig || []
+                          ).map((oItem: any) => {
+                            if (oItem.fieldId === cItem.fieldId) {
+                              return {
+                                ...oItem,
+                                defaultValue: val,
+                              };
+                            }
+                            return oItem;
+                          });
+                          setPageConfig({
+                            ...pageConfig,
+                            categoriesSelectedOtherConfig: arr,
+                          });
+                        }}
+                      ></DatePicker>
+                    </div>
+                    <div className="flex-a-c m-t-5">
+                      <span className="categories-selected-otherConfig-item-label">
+                        是否隐藏：
+                      </span>
+                      <span>
+                        <Checkbox
+                          checked={isHide}
+                          onChange={(e) => {
+                            const arr = (
+                              pageConfig.categoriesSelectedOtherConfig || []
+                            ).map((oItem: any) => {
+                              if (oItem.fieldId === cItem.fieldId) {
+                                return {
+                                  ...oItem,
+                                  isHide: e.target.checked,
+                                };
+                              }
+                              return oItem;
+                            });
+                            setPageConfig({
+                              ...pageConfig,
+                              categoriesSelectedOtherConfig: arr,
+                            });
+                          }}
+                        ></Checkbox>
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+              return '';
+            })}
+          </Item>
+        ) : null}
         {/* targetValueType: 1,
         targetValue: '',
         // 当前值类型
