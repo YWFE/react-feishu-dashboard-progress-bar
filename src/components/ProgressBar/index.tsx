@@ -641,16 +641,23 @@ function ProgressBarView({
 }: IProgressBarView) {
   const { targetVal, targetValStr, currentVal, currentValStr, percentage } =
     renderData;
-  const { categoriesSelected, targetFormat, currentFormat, format } =
+  const { categoriesSelected, targetFormat, currentFormat, format, unit } =
     pageConfig;
   const categoriesSelectedDatas = (categoriesSelected || []).map(
     (cItem: string) => JSON.parse(cItem)
   );
 
-  let fontSizeNum = (window.innerWidth / 187) * 5 * 0.6;
-  fontSizeNum = Math.min(7, fontSizeNum);
-  fontSizeNum = Math.max(3, fontSizeNum);
-  const [fontSize, setFontSize] = useState(`${fontSizeNum}vw`);
+  // 获取字体大小
+  const getFontSize = () => {
+    let fontSizeNum = (window.innerWidth / 187) * 4;
+    fontSizeNum = Math.min(5, fontSizeNum);
+    fontSizeNum = Math.max(3, fontSizeNum);
+    return `${fontSizeNum}vw`;
+  };
+
+  const [fontSize, setFontSize] = useState(
+    dashboard.state === DashboardState.View ? getFontSize() : '2vw'
+  );
   const [innerWidth, setInnerWidth] = useState(window.innerWidth);
 
   // 窗口变更 重新绘制
@@ -675,10 +682,7 @@ function ProgressBarView({
     });
     myChart?.resize(true);
     // 更新字体大小
-    let fontSizeNum2 = (window.innerWidth / 187) * 5 * 0.6;
-    fontSizeNum2 = Math.min(7, fontSizeNum2);
-    fontSizeNum2 = Math.max(3, fontSizeNum2);
-    setFontSize(`${fontSizeNum2}vw`);
+    setFontSize(getFontSize());
   };
 
   useEffect(() => {
@@ -795,13 +799,13 @@ function ProgressBarView({
               }}
             >
               {currentVal && currentVal !== '-'
-                ? formatNumber(currentVal, currentFormat, format)
+                ? `${formatNumber(currentVal, currentFormat, format)}${unit}`
                 : '-'}
             </span>
             <span className="line"></span>
             <span className="number">
               {targetVal && targetVal !== '-'
-                ? formatNumber(targetVal, targetFormat, format)
+                ? `${formatNumber(targetVal, targetFormat, format)}${unit}`
                 : '-'}
             </span>
           </span>
@@ -1273,24 +1277,8 @@ function ConfigPanel(props: {
                 label: '个',
               },
               {
-                value: '千',
-                label: '千',
-              },
-              {
-                value: '万',
-                label: '万',
-              },
-              {
-                value: '百万',
-                label: '百万',
-              },
-              {
-                value: '千万',
-                label: '千万',
-              },
-              {
-                value: '亿',
-                label: '亿',
+                value: '元',
+                label: '元',
               },
             ]}
           />
