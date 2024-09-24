@@ -1268,7 +1268,7 @@ function ConfigPanel(props: {
             }}
             options={[
               {
-                value: '无',
+                value: '',
                 label: '无',
               },
               {
