@@ -41,6 +41,34 @@ let myChart: any = null; // echarts实例
 // const othersConfigKey: { key: string; title: string }[] = [];
 
 // const defaultOthersConfig = ['showTitle'];
+//  默认配置
+const configDefault = {
+  target: new Date().getTime(),
+  color: '#373c43',
+  tableSourceSelected: '',
+  dataRangeSelected: '',
+  categoriesSelected: [],
+  // 单位
+  unit: '无',
+  // 精度
+  format: '0',
+  // 百分比格式
+  percentageFormat: '0',
+  // 目标值类型
+  targetValueType: '1',
+  targetValueTypeKind: '',
+  targetValue: '',
+  targetValueComputed: 'sum',
+  // 格式
+  targetFormat: '0',
+  // 当前值类型
+  currentValueType: '1',
+  currentValueTypeKind: '',
+  currentValue: '',
+  currentValueComputed: 'sum',
+  currentFormat: '0',
+  currentValueWarn: false,
+};
 
 const getAvailableUnits: (t: TFunction<'translation', undefined>) => {
   [p: string]: { title: string; unit: number; order: number };
@@ -111,27 +139,7 @@ export default function ProgressBar() {
 
   // create时的默认配置new
   const [pageConfig, setPageConfig] = useState<any>({
-    target: new Date().getTime(),
-    color: '#373c43',
-    tableSourceSelected: '',
-    dataRangeSelected: '',
-    categoriesSelected: [],
-    // 单位
-    unit: '无',
-    // 格式
-    format: '0',
-    // 百分比格式
-    percentageFormat: '0',
-    // 目标值类型
-    targetValueType: '1',
-    targetValueTypeKind: '',
-    targetValue: '',
-    targetValueComputed: 'sum',
-    // 当前值类型
-    currentValueType: '1',
-    currentValueTypeKind: '',
-    currentValue: '',
-    currentValueComputed: 'sum',
+    ...configDefault,
   });
 
   const [tableSource, setTableSource] = useState<any[]>([]);
@@ -149,7 +157,9 @@ export default function ProgressBar() {
   const [tableList, setTableList] = useState<any[]>([]);
   const [tableFileds, setTableFileds] = useState<any[]>([]);
 
-  // const log = console.log.bind(console);
+  // progress bar 宽度
+  let barWidth = Math.min(60, (window.innerWidth / 187) * 10);
+  barWidth = Math.max(10, barWidth);
 
   const availableUnits = useMemo(() => getAvailableUnits(t), [i18n.language]);
 
@@ -205,9 +215,12 @@ export default function ProgressBar() {
     if (currentVal - targetVal > 0) {
       showCurrentVal = targetVal;
     }
-    // 最大宽度 22
-    let barWidth = Math.min(60, (window.innerWidth / 280) * 20);
-    barWidth = Math.max(10, barWidth);
+    if (
+      dashboard.state === DashboardState.Config ||
+      dashboard.state === DashboardState.Create
+    ) {
+      barWidth = 20;
+    }
     // 绘制图表
     const option = {
       title: {
@@ -558,29 +571,7 @@ export default function ProgressBar() {
   useEffect(() => {
     if (isCreate) {
       setPageConfig({
-        target: new Date().getTime(),
-        color: '#373c43',
-        tableSourceSelected: '',
-        dataRangeSelected: '',
-        categoriesSelected: [],
-        // 单位
-        unit: '无',
-        // 精度
-        format: '0',
-        // 百分比格式
-        percentageFormat: '0',
-        // 目标值类型
-        targetValueType: '1',
-        targetValueTypeKind: '',
-        targetValue: '',
-        // 格式
-        targetFormat: '0',
-        // 当前值类型
-        currentValueType: '1',
-        currentValueTypeKind: '',
-        currentValue: '',
-        currentFormat: '0',
-        currentValueWarn: false,
+        ...configDefault,
         ...opt,
       });
     }
@@ -604,7 +595,7 @@ export default function ProgressBar() {
           pageConfig={pageConfig}
           key={pageConfig.target}
           isConfig={isConfig}
-          drawChart={drawChart}
+          barWidth={barWidth}
         />
       </div>
       {isConfig ? (
@@ -632,7 +623,7 @@ interface IProgressBarView {
   renderData: any;
   filterFormRef: any;
   getData: any;
-  drawChart: any;
+  barWidth: any;
   t: TFunction<'translation', undefined>;
   availableUnits: ReturnType<typeof getAvailableUnits>;
 }
@@ -646,7 +637,7 @@ function ProgressBarView({
   filterFormRef,
   getData,
   renderData,
-  drawChart,
+  barWidth,
 }: IProgressBarView) {
   const { targetVal, targetValStr, currentVal, currentValStr, percentage } =
     renderData;
@@ -656,20 +647,38 @@ function ProgressBarView({
     (cItem: string) => JSON.parse(cItem)
   );
 
-  const [fontSize, setFontSize] = useState('5vw');
+  let fontSizeNum = (window.innerWidth / 187) * 5 * 0.6;
+  fontSizeNum = Math.min(7, fontSizeNum);
+  fontSizeNum = Math.max(3, fontSizeNum);
+  const [fontSize, setFontSize] = useState(`${fontSizeNum}vw`);
   const [innerWidth, setInnerWidth] = useState(window.innerWidth);
 
   // 窗口变更 重新绘制
   const resizeChart = () => {
+    if (
+      dashboard.state === DashboardState.Config ||
+      dashboard.state === DashboardState.Create
+    ) {
+      return;
+    }
     setInnerWidth(window.innerWidth);
-    // 更新交互
-    // myChart?.resize();
-    drawChart();
+    // 更新图表
+    myChart.setOption({
+      series: [
+        {
+          barWidth: barWidth,
+        },
+        {
+          barWidth: barWidth,
+        },
+      ],
+    });
+    myChart?.resize(true);
     // 更新字体大小
-    let fontSizeNum = (window.innerWidth / 187) * 1;
-    fontSizeNum = Math.min(5, fontSizeNum);
-    fontSizeNum = Math.max(5, fontSizeNum);
-    setFontSize(`${fontSizeNum}vw`);
+    let fontSizeNum2 = (window.innerWidth / 187) * 5 * 0.6;
+    fontSizeNum2 = Math.min(7, fontSizeNum2);
+    fontSizeNum2 = Math.max(3, fontSizeNum2);
+    setFontSize(`${fontSizeNum2}vw`);
   };
 
   useEffect(() => {
@@ -850,29 +859,7 @@ function ConfigPanel(props: {
 
   const resetPageConfig = (opt?: any) => {
     setPageConfig({
-      target: new Date().getTime(),
-      color: '#373c43',
-      tableSourceSelected: '',
-      dataRangeSelected: '',
-      categoriesSelected: [],
-      // 单位
-      unit: '无',
-      // 精度
-      format: '0',
-      // 百分比格式
-      percentageFormat: '0',
-      // 目标值类型
-      targetValueType: '1',
-      targetValueTypeKind: '',
-      targetValue: '',
-      // 格式
-      targetFormat: '0',
-      // 当前值类型
-      currentValueType: '1',
-      currentValueTypeKind: '',
-      currentValue: '',
-      currentFormat: '0',
-      currentValueWarn: false,
+      ...configDefault,
       ...opt,
     });
   };
