@@ -1255,10 +1255,6 @@ function ConfigPanel(props: {
             }}
             options={[
               {
-                value: '',
-                label: '无',
-              },
-              {
                 value: '个',
                 label: '个',
               },
