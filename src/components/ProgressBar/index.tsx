@@ -1245,12 +1245,13 @@ function ConfigPanel(props: {
         </Item>
         <Item label="单位">
           <Select
+            allowClear
             value={pageConfig?.unit}
             style={{ width: '100%' }}
             onChange={(val) => {
               setPageConfig({
                 ...pageConfig,
-                unit: val,
+                unit: val || '',
               });
             }}
             options={[
