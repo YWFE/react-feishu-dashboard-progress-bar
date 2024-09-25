@@ -157,3 +157,34 @@
     background-color: #fff;
   }
 }
+
+.semi-form-field,
+.semi-form-horizontal .semi-form-field:last-child {
+  margin-right: 0px !important;
+}
+.line-one {
+  .semi-form-field {
+    padding-right: 0px !important;
+  }
+}
+
+.filter-content-actions {
+  display: flex;
+  align-items: center;
+  margin-top: 5px;
+  > div {
+    cursor: pointer;
+    margin-right: 5px;
+    // color: #fff;
+    color: #3370ff;
+    border: 1px solid #e0e0e0;
+    background-color: #fff;
+    transition: 0.3s;
+    &:hover {
+      border: 1px solid #3370ff;
+    }
+    &:last-child {
+      margin-right: 0;
+    }
+  }
+}

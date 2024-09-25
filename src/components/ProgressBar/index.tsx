@@ -672,6 +672,9 @@ function ProgressBarView({
     categoriesSelectedDatas.push(opt);
   });
 
+  // 选择器宽度边界
+  const filterWidth = 550;
+
   // 初始化表单值
   let initValues: any = {};
   categoriesSelectedDatas.forEach((opt: any) => {
@@ -694,6 +697,36 @@ function ProgressBarView({
     dashboard.state === DashboardState.View ? getFontSize() : '2vw'
   );
   const [innerWidth, setInnerWidth] = useState(window.innerWidth);
+
+  const presets = [
+    {
+      text: '今天',
+      start: new Date(),
+      end: new Date(),
+    },
+    {
+      text: '最近7天',
+      start: new Date(new Date().valueOf() - 1000 * 3600 * 24 * 7),
+      end: new Date(),
+    },
+    {
+      text: '最近30天',
+      start: new Date(new Date().valueOf() - 1000 * 3600 * 24 * 30),
+      end: new Date(),
+    },
+    {
+      // 本月
+      text: '本月',
+      start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+      end: new Date(),
+    },
+    // 本年
+    {
+      text: '本年',
+      start: new Date(new Date().getFullYear(), 0, 1),
+      end: new Date(),
+    },
+  ];
 
   // 窗口变更 重新绘制
   const resizeChart = () => {
@@ -745,7 +778,7 @@ function ProgressBarView({
             ref={filterFormRef}
             layout="horizontal"
             initValues={initValues}
-            style={{ padding: 10, width: '100%' }}
+            style={{ width: '100%' }}
             onValueChange={(values) => {
               console.log('values =>', values);
               getData({
@@ -754,6 +787,7 @@ function ProgressBarView({
             }}
           >
             <Row
+              className={`${innerWidth < filterWidth ? 'line-one' : ''}`}
               style={{
                 width: '100%',
               }}
@@ -763,10 +797,10 @@ function ProgressBarView({
                 if (fieldType === 1) {
                   return (
                     <Col
-                      span={innerWidth < 500 ? 24 : 12}
+                      span={innerWidth < filterWidth ? 24 : 12}
                       key={`filter-${cItem?.fieldId}`}
                       style={{
-                        marginTop: innerWidth < 500 ? '5px' : '0',
+                        marginTop: innerWidth < filterWidth ? '5px' : '0',
                       }}
                     >
                       <Form.Input
@@ -781,15 +815,17 @@ function ProgressBarView({
                 } else if (fieldType === 5) {
                   return (
                     <Col
-                      span={innerWidth < 500 ? 24 : 12}
+                      className="filter-content"
+                      span={innerWidth < filterWidth ? 24 : 12}
                       key={`filter-${cItem?.fieldId}`}
                       style={{
-                        marginTop: innerWidth < 500 ? '5px' : '0px',
+                        marginTop: innerWidth < filterWidth ? '5px' : '0px',
                       }}
                     >
                       <Form.DatePicker
                         // type="date"
                         type="dateRange"
+                        presets={presets}
                         insetInput
                         onChangeWithDateFirst={false}
                         field={cItem?.fieldId}
@@ -807,6 +843,93 @@ function ProgressBarView({
                         // initValue={new Date()}
                         placeholder="请选择日期"
                       />
+                      <div
+                        className="filter-content-actions"
+                        style={{
+                          paddingRight: innerWidth < filterWidth ? '0' : '16px',
+                        }}
+                      >
+                        <Tag
+                          size="small"
+                          color="light-blue"
+                          onClick={() => {
+                            filterFormRef.current.formApi.setValue(
+                              cItem?.fieldId,
+                              [new Date(), new Date()]
+                            );
+                          }}
+                        >
+                          今天
+                        </Tag>
+                        <Tag
+                          size="small"
+                          color="light-blue"
+                          onClick={() => {
+                            filterFormRef.current.formApi.setValue(
+                              cItem?.fieldId,
+                              [
+                                new Date(
+                                  new Date().valueOf() - 1000 * 3600 * 24 * 7
+                                ),
+                                new Date(),
+                              ]
+                            );
+                          }}
+                        >
+                          最近7天
+                        </Tag>
+                        <Tag
+                          size="small"
+                          color="light-blue"
+                          onClick={() => {
+                            filterFormRef.current.formApi.setValue(
+                              cItem?.fieldId,
+                              [
+                                new Date(
+                                  new Date().valueOf() - 1000 * 3600 * 24 * 30
+                                ),
+                                new Date(),
+                              ]
+                            );
+                          }}
+                        >
+                          最近30天
+                        </Tag>
+                        <Tag
+                          size="small"
+                          color="light-blue"
+                          onClick={() => {
+                            filterFormRef.current.formApi.setValue(
+                              cItem?.fieldId,
+                              [
+                                new Date(
+                                  new Date().getFullYear(),
+                                  new Date().getMonth(),
+                                  1
+                                ),
+                                new Date(),
+                              ]
+                            );
+                          }}
+                        >
+                          本月
+                        </Tag>
+                        <Tag
+                          size="small"
+                          color="light-blue"
+                          onClick={() => {
+                            filterFormRef.current.formApi.setValue(
+                              cItem?.fieldId,
+                              [
+                                new Date(new Date().getFullYear(), 0, 1),
+                                new Date(),
+                              ]
+                            );
+                          }}
+                        >
+                          本年
+                        </Tag>
+                      </div>
                     </Col>
                   );
                 }
