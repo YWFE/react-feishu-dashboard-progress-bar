@@ -609,7 +609,6 @@ interface IProgressBarView {
   renderData: any;
   filterFormRef: any;
   getData: any;
-  barWidth: any;
   t: TFunction<'translation', undefined>;
   availableUnits: ReturnType<typeof getAvailableUnits>;
 }
