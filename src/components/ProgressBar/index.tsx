@@ -155,10 +155,6 @@ export default function ProgressBar() {
   const [tableList, setTableList] = useState<any[]>([]);
   const [tableFileds, setTableFileds] = useState<any[]>([]);
 
-  // progress bar 宽度
-  let barWidth = Math.min(60, (window.innerWidth / 187) * 10);
-  barWidth = Math.max(10, barWidth);
-
   const availableUnits = useMemo(() => getAvailableUnits(t), [i18n.language]);
 
   /** 是否配置/创建模式下 */
@@ -215,6 +211,10 @@ export default function ProgressBar() {
     } else if (currentVal) {
       showCurrentVal = Math.max(targetVal / 20, currentVal);
     }
+
+    // progress bar 宽度
+    let barWidth = Math.min(60, (window.innerWidth / 187) * 10);
+    barWidth = Math.max(10, barWidth);
 
     if (
       dashboard.state === DashboardState.Config ||
@@ -582,7 +582,6 @@ export default function ProgressBar() {
           pageConfig={pageConfig}
           key={pageConfig.target}
           isConfig={isConfig}
-          barWidth={barWidth}
         />
       </div>
       {isConfig ? (
@@ -624,7 +623,6 @@ function ProgressBarView({
   filterFormRef,
   getData,
   renderData,
-  barWidth,
 }: IProgressBarView) {
   const { targetVal, currentVal, percentage } = renderData;
   const { categoriesSelected, targetFormat, currentFormat, format, unit } =
@@ -655,14 +653,17 @@ function ProgressBarView({
       return;
     }
     setInnerWidth(window.innerWidth);
+    // progress bar 宽度
+    let barWidth = Math.min(60, (window.innerWidth / 187) * 10);
+    barWidth = Math.max(10, barWidth);
     // 更新图表
     myChart.setOption({
       series: [
         {
-          barWidth: barWidth,
+          barWidth,
         },
         {
-          barWidth: barWidth,
+          barWidth,
         },
       ],
     });
