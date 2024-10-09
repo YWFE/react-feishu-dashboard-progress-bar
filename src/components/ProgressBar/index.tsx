@@ -314,7 +314,8 @@ export default function ProgressBar() {
       // const view = await table.getViewById(viewId);
       // console.log('tableData =>', tableData);
       // console.log('tableList =>', tableList);
-      const { categoriesSelected } = pageConfigInfo;
+      const { categoriesSelected, categoriesSelectedOtherConfig } =
+        pageConfigInfo;
       // 获取过滤器配置
       const categoriesSelectedKeys = (categoriesSelected || []).map(
         (cItem: string) => JSON.parse(cItem)
@@ -350,28 +351,47 @@ export default function ProgressBar() {
           let isMatch = true;
           filterFormValuesKeys.forEach((key) => {
             let value = null;
-            let isTime = false;
+            const otherConfig = categoriesSelectedOtherConfig.find(
+              (oItem: any) => oItem?.fieldId === key
+            );
+            let isTime = otherConfig?.fieldType === 5;
+            let timeType = otherConfig?.timeType || (isTime ? 'dateRange' : '');
             if (
               categoriesSelectedKeys.find(
                 (cItem: any) => cItem?.fieldId === key
               )?.fieldType === 5 &&
-              filterFormValues[key]?.length
+              filterFormValues[key]
             ) {
-              isTime = true;
-              value = [
-                new Date(filterFormValues[key][0]).getTime(),
-                new Date(filterFormValues[key][1]).getTime(),
-              ];
+              // 判断 filterFormValues[key] 是否为数组，如果是数组则为时间范围，否则为时间点
+              if (
+                timeType === 'dateRange' ||
+                Array.isArray(filterFormValues[key])
+              ) {
+                value = filterFormValues[key]?.length
+                  ? [
+                      new Date(filterFormValues[key][0]).getTime(),
+                      new Date(filterFormValues[key][1]).getTime(),
+                    ]
+                  : undefined;
+              } else {
+                value = filterFormValues[key] || '';
+              }
             } else {
               value = null;
             }
             if (value) {
               if (isTime) {
-                if (
-                  record.fields[key] < value[0] ||
-                  record.fields[key] > value[1]
-                ) {
-                  isMatch = false;
+                if (timeType === 'dateRange') {
+                  if (
+                    record.fields[key] < value[0] ||
+                    record.fields[key] > value[1]
+                  ) {
+                    isMatch = false;
+                  }
+                } else if (timeType === 'date') {
+                  if (record.fields[key] !== new Date(value).getTime()) {
+                    isMatch = false;
+                  }
                 }
               } else if (record.fields[key] !== value) {
                 isMatch = false;

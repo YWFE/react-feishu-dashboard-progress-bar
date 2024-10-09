@@ -24,6 +24,7 @@ import { Select } from 'antd';
 import { useState, useEffect, useRef } from 'react';
 import { Item } from '../../Item';
 import { ColorPicker } from '../../ColorPicker';
+import CommonFilter from '../../CommonFilter';
 import { IconConfigStroked } from '@douyinfe/semi-icons';
 import { NUMBER_FORMAT_ENU } from './../contant';
 
@@ -139,7 +140,7 @@ function ConfigPanel(props: {
             })}
           />
         </Item>
-        <Item label="选择器">
+        <Item label="筛选器字段">
           <Select
             mode="multiple"
             style={{ width: '100%' }}
@@ -165,11 +166,18 @@ function ConfigPanel(props: {
                     (oItem: any) => oItem?.fieldId === cItem?.fieldId
                   )
                 ) {
-                  arr.push({
+                  let opt = {
                     ...cItem,
                     defaultValue: cItem?.fieldType === 5 ? [] : '',
                     isHide: true,
-                  });
+                  };
+                  if (cItem?.fieldType === 5) {
+                    opt = {
+                      ...opt,
+                      timeType: 'dateRange',
+                    };
+                  }
+                  arr.push(opt);
                 } else {
                   arr.push({
                     ...categoriesSelectedOtherConfig.find(
@@ -203,84 +211,11 @@ function ConfigPanel(props: {
         {/* 设置选择器 配置 */}
         {pageConfig?.categoriesSelectedOtherConfig &&
         pageConfig?.categoriesSelectedOtherConfig.length ? (
-          <Item label="选择器配置">
-            {pageConfig?.categoriesSelectedOtherConfig.map((cItem: any) => {
-              const { fieldType, fieldName, fieldId, isHide } = cItem;
-              if (fieldType === 5) {
-                return (
-                  <div
-                    className="categories-selected-otherConfig-item"
-                    key={`categoriesSelectedOtherConfig-${fieldId}`}
-                  >
-                    <div>
-                      <Tag
-                        prefixIcon={<IconConfigStroked />}
-                        size="large"
-                        color="light-blue"
-                      >
-                        {fieldName}
-                      </Tag>
-                    </div>
-                    <div className="m-t-5">
-                      <span className="categories-selected-otherConfig-item-label">
-                        默认值：
-                      </span>
-                      <DatePicker
-                        type="dateRange"
-                        value={cItem.defaultValue}
-                        format="yyyy/MM/dd"
-                        onChange={(val) => {
-                          const arr = (
-                            pageConfig.categoriesSelectedOtherConfig || []
-                          ).map((oItem: any) => {
-                            if (oItem.fieldId === cItem.fieldId) {
-                              return {
-                                ...oItem,
-                                defaultValue: val,
-                              };
-                            }
-                            return oItem;
-                          });
-                          setPageConfig({
-                            ...pageConfig,
-                            categoriesSelectedOtherConfig: arr,
-                          });
-                        }}
-                      ></DatePicker>
-                    </div>
-                    <div className="flex-a-c m-t-5">
-                      <span className="categories-selected-otherConfig-item-label">
-                        是否隐藏：
-                      </span>
-                      <span>
-                        <Checkbox
-                          checked={isHide}
-                          onChange={(e) => {
-                            const arr = (
-                              pageConfig.categoriesSelectedOtherConfig || []
-                            ).map((oItem: any) => {
-                              if (oItem.fieldId === cItem.fieldId) {
-                                return {
-                                  ...oItem,
-                                  isHide: e.target.checked,
-                                };
-                              }
-                              return oItem;
-                            });
-                            setPageConfig({
-                              ...pageConfig,
-                              categoriesSelectedOtherConfig: arr,
-                            });
-                          }}
-                        ></Checkbox>
-                      </span>
-                    </div>
-                  </div>
-                );
-              }
-              return '';
-            })}
-          </Item>
+          <CommonFilter
+            filterItems={pageConfig?.categoriesSelectedOtherConfig || []}
+            pageConfig={pageConfig}
+            upDatePageConfig={setPageConfig}
+          />
         ) : null}
         <Item label="目标值">
           <RadioGroup
