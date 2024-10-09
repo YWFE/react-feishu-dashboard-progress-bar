@@ -1,6 +1,6 @@
 {
   "name": "react-feishu-dashboard-progress-bar",
-  "version": "1.0.0",
+  "version": "0.0.5",
   "type": "module",
   "description": "feishu dashboard progressbar by React",
   "scripts": {

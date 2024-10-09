@@ -8,17 +8,11 @@ import {
   FieldType,
 } from '@lark-base-open/js-sdk';
 import {
-  Form,
-  Col,
-  Row,
   RadioGroup,
   Radio,
   InputNumber,
   Banner,
   Button,
-  Checkbox,
-  Tag,
-  DatePicker,
 } from '@douyinfe/semi-ui';
 import { Select } from 'antd';
 import { useState, useEffect, useRef } from 'react';
@@ -243,6 +237,7 @@ function ConfigPanel(props: {
               style={{ width: '100%', marginTop: '10px' }}
               value={pageConfig?.targetValue}
               maxLength={16}
+              precision={2}
               onChange={(val) => {
                 setPageConfig({
                   ...pageConfig,
@@ -369,6 +364,7 @@ function ConfigPanel(props: {
               hideButtons
               placeholder={'请输入当前值'}
               maxLength={16}
+              precision={2}
               value={pageConfig?.currentValue}
               onChange={(val) => {
                 setPageConfig({
