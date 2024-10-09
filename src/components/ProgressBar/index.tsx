@@ -56,6 +56,8 @@ const configDefault = {
   currentValueWarn: false,
 };
 
+console.log('version => 0.0.5');
+
 // 获取全部数据来源
 const getTableSourceList = async () => {
   const tables = await bitable.base.getTableList();
