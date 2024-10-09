@@ -6,21 +6,8 @@ import {
   bitable,
   DashboardState,
   IConfig,
-  base,
   SourceType,
-  FieldType,
 } from '@lark-base-open/js-sdk';
-import {
-  Form,
-  Col,
-  Row,
-  RadioGroup,
-  Radio,
-  InputNumber,
-  Banner,
-  Button,
-} from '@douyinfe/semi-ui';
-import { Select } from 'antd';
 import { useState, useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
 // import { getTime } from './utils';
@@ -28,10 +15,8 @@ import { useConfig } from '../../hooks';
 // import dayjs from 'dayjs';
 import classnames from 'classnames';
 import { useTranslation } from 'react-i18next';
-import { TFunction } from 'i18next/typescript/t';
-import { ColorPicker } from '../ColorPicker';
-import { Item } from '../Item';
-import { NUMBER_FORMAT_ENU, formatNumber } from './contant';
+import ProgressBarView from './components/ProgressBarView';
+import ConfigPanel from './components/ConfigPanel';
 
 let myChart: any = null; // echarts实例
 
@@ -44,10 +29,11 @@ let myChart: any = null; // echarts实例
 //  默认配置
 const configDefault = {
   target: new Date().getTime(),
-  color: '#373c43',
+  color: '#3370ff',
   tableSourceSelected: '',
   dataRangeSelected: '',
   categoriesSelected: [],
+  categoriesSelectedOtherConfig: [],
   // 单位
   unit: '',
   // 精度
@@ -70,44 +56,7 @@ const configDefault = {
   currentValueWarn: false,
 };
 
-const getAvailableUnits: (t: TFunction<'translation', undefined>) => {
-  [p: string]: { title: string; unit: number; order: number };
-} = (t) => {
-  return {
-    sec: {
-      title: t('second'),
-      unit: 1,
-      order: 1,
-    },
-    min: {
-      title: t('minute'),
-      unit: 60,
-      order: 2,
-    },
-    hour: {
-      title: t('hour'),
-      unit: 60 * 60,
-      order: 3,
-    },
-    day: {
-      title: t('day'),
-      unit: 60 * 60 * 24,
-      order: 4,
-    },
-    week: {
-      title: t('week'),
-      unit: 60 * 60 * 24 * 7,
-      order: 5,
-    },
-    month: {
-      title: t('month'),
-      unit: 60 * 60 * 24 * 30,
-      order: 6,
-    },
-  };
-};
-
-const defaultUnits = ['sec', 'min', 'hour', 'day'];
+console.log('version => 0.0.5');
 
 // 获取全部数据来源
 const getTableSourceList = async () => {
@@ -154,12 +103,6 @@ export default function ProgressBar() {
 
   const [tableList, setTableList] = useState<any[]>([]);
   const [tableFileds, setTableFileds] = useState<any[]>([]);
-
-  // progress bar 宽度
-  let barWidth = Math.min(60, (window.innerWidth / 187) * 10);
-  barWidth = Math.max(10, barWidth);
-
-  const availableUnits = useMemo(() => getAvailableUnits(t), [i18n.language]);
 
   /** 是否配置/创建模式下 */
   const isCreate = dashboard.state === DashboardState.Create;
@@ -215,6 +158,10 @@ export default function ProgressBar() {
     } else if (currentVal) {
       showCurrentVal = Math.max(targetVal / 20, currentVal);
     }
+
+    // progress bar 宽度
+    let barWidth = Math.min(60, (window.innerWidth / 187) * 10);
+    barWidth = Math.max(10, barWidth);
 
     if (
       dashboard.state === DashboardState.Config ||
@@ -369,7 +316,8 @@ export default function ProgressBar() {
       // const view = await table.getViewById(viewId);
       // console.log('tableData =>', tableData);
       // console.log('tableList =>', tableList);
-      const { categoriesSelected } = pageConfigInfo;
+      const { categoriesSelected, categoriesSelectedOtherConfig } =
+        pageConfigInfo;
       // 获取过滤器配置
       const categoriesSelectedKeys = (categoriesSelected || []).map(
         (cItem: string) => JSON.parse(cItem)
@@ -405,17 +353,49 @@ export default function ProgressBar() {
           let isMatch = true;
           filterFormValuesKeys.forEach((key) => {
             let value = null;
+            const otherConfig = categoriesSelectedOtherConfig.find(
+              (oItem: any) => oItem?.fieldId === key
+            );
+            let isTime = otherConfig?.fieldType === 5;
+            let timeType = otherConfig?.timeType || (isTime ? 'dateRange' : '');
             if (
               categoriesSelectedKeys.find(
                 (cItem: any) => cItem?.fieldId === key
-              )?.fieldType === 5
+              )?.fieldType === 5 &&
+              filterFormValues[key]
             ) {
-              value = new Date(filterFormValues[key]).getTime();
+              // 判断 filterFormValues[key] 是否为数组，如果是数组则为时间范围，否则为时间点
+              if (
+                timeType === 'dateRange' ||
+                Array.isArray(filterFormValues[key])
+              ) {
+                value = filterFormValues[key]?.length
+                  ? [
+                      new Date(filterFormValues[key][0]).getTime(),
+                      new Date(filterFormValues[key][1]).getTime(),
+                    ]
+                  : undefined;
+              } else {
+                value = filterFormValues[key] || '';
+              }
             } else {
-              value = filterFormValues[key];
+              value = null;
             }
             if (value) {
-              if (record.fields[key] !== value) {
+              if (isTime) {
+                if (timeType === 'dateRange') {
+                  if (
+                    record.fields[key] < value[0] ||
+                    record.fields[key] > value[1]
+                  ) {
+                    isMatch = false;
+                  }
+                } else if (timeType === 'date') {
+                  if (record.fields[key] !== new Date(value).getTime()) {
+                    isMatch = false;
+                  }
+                }
+              } else if (record.fields[key] !== value) {
                 isMatch = false;
               }
             }
@@ -575,22 +555,23 @@ export default function ProgressBar() {
       <div className="content">
         <ProgressBarView
           t={t}
+          myChart={myChart}
           getData={getData}
           filterFormRef={filterFormRef}
-          availableUnits={availableUnits}
           renderData={renderData}
           pageConfig={pageConfig}
           key={pageConfig.target}
           isConfig={isConfig}
-          barWidth={barWidth}
         />
       </div>
       {isConfig ? (
         <ConfigPanel
           t={t}
+          configDefault={configDefault}
           pageConfig={pageConfig}
           setPageConfig={setPageConfig}
-          availableUnits={availableUnits}
+          getTableRange={getTableRange}
+          getCategories={getCategories}
           tableList={tableList}
           tableFileds={tableFileds}
           tableSource={tableSource}
@@ -604,725 +585,350 @@ export default function ProgressBar() {
   );
 }
 
-interface IProgressBarView {
-  pageConfig: any;
-  isConfig: boolean;
-  renderData: any;
-  filterFormRef: any;
-  getData: any;
-  barWidth: any;
-  t: TFunction<'translation', undefined>;
-  availableUnits: ReturnType<typeof getAvailableUnits>;
-}
-
 // 展示端
-function ProgressBarView({
-  pageConfig,
-  isConfig,
-  availableUnits,
-  t,
-  filterFormRef,
-  getData,
-  renderData,
-  barWidth,
-}: IProgressBarView) {
-  const { targetVal, currentVal, percentage } = renderData;
-  const { categoriesSelected, targetFormat, currentFormat, format, unit } =
-    pageConfig;
-  const categoriesSelectedDatas = (categoriesSelected || []).map(
-    (cItem: string) => JSON.parse(cItem)
-  );
+// function ProgressBarView({
+//   pageConfig,
+//   isConfig,
+//   availableUnits,
+//   t,
+//   filterFormRef,
+//   getData,
+//   renderData,
+// }: IProgressBarView) {
+//   const { targetVal, currentVal, percentage } = renderData;
+//   const {
+//     categoriesSelected,
+//     categoriesSelectedOtherConfig,
+//     targetFormat,
+//     currentFormat,
+//     format,
+//     unit,
+//   } = pageConfig;
+//   let categoriesSelectedDatas: any = [];
+//   let categoriesSelectedDatasShow: any = [];
+//   // 获取选择器配置
+//   (categoriesSelected || []).forEach((cItem: string) => {
+//     const opt = JSON.parse(cItem);
+//     const otherConfig = categoriesSelectedOtherConfig.find(
+//       (oItem: any) => oItem?.fieldId === opt?.fieldId
+//     );
+//     if (otherConfig) {
+//       opt.isHide = otherConfig?.isHide;
+//       opt.defaultValue = otherConfig?.defaultValue;
+//     }
+//     if (!opt?.isHide) {
+//       categoriesSelectedDatasShow.push(opt);
+//     }
+//     categoriesSelectedDatas.push(opt);
+//   });
 
-  // 获取字体大小
-  const getFontSize = () => {
-    let fontSizeNum = (window.innerWidth / 187) * 4;
-    fontSizeNum = Math.min(5, fontSizeNum);
-    fontSizeNum = Math.max(3, fontSizeNum);
-    return `${fontSizeNum}vw`;
-  };
+//   // 选择器宽度边界
+//   const filterWidth = 550;
 
-  const [fontSize, setFontSize] = useState(
-    dashboard.state === DashboardState.View ? getFontSize() : '2vw'
-  );
-  const [innerWidth, setInnerWidth] = useState(window.innerWidth);
+//   // 初始化表单值
+//   let initValues: any = {};
+//   categoriesSelectedDatas.forEach((opt: any) => {
+//     initValues[opt.fieldId] = opt?.defaultValue
+//       ? opt?.defaultValue
+//       : opt?.fieldType === 5
+//       ? []
+//       : '';
+//   });
 
-  // 窗口变更 重新绘制
-  const resizeChart = () => {
-    if (
-      dashboard.state === DashboardState.Config ||
-      dashboard.state === DashboardState.Create
-    ) {
-      return;
-    }
-    setInnerWidth(window.innerWidth);
-    // 更新图表
-    myChart.setOption({
-      series: [
-        {
-          barWidth: barWidth,
-        },
-        {
-          barWidth: barWidth,
-        },
-      ],
-    });
-    myChart?.resize(true);
-    // 更新字体大小
-    setFontSize(getFontSize());
-  };
+//   // 获取字体大小
+//   const getFontSize = () => {
+//     let fontSizeNum = (window.innerWidth / 187) * 4;
+//     fontSizeNum = Math.min(5, fontSizeNum);
+//     fontSizeNum = Math.max(3, fontSizeNum);
+//     return `${fontSizeNum}vw`;
+//   };
 
-  useEffect(() => {
-    window.addEventListener('resize', resizeChart);
+//   const [fontSize, setFontSize] = useState(
+//     dashboard.state === DashboardState.View ? getFontSize() : '2vw'
+//   );
+//   const [innerWidth, setInnerWidth] = useState(window.innerWidth);
 
-    return () => {
-      window.removeEventListener('resize', resizeChart);
-    };
-  }, []);
+//   const presets = [
+//     {
+//       text: '今天',
+//       start: new Date(),
+//       end: new Date(),
+//     },
+//     {
+//       text: '最近7天',
+//       start: new Date(new Date().valueOf() - 1000 * 3600 * 24 * 7),
+//       end: new Date(),
+//     },
+//     {
+//       text: '最近30天',
+//       start: new Date(new Date().valueOf() - 1000 * 3600 * 24 * 30),
+//       end: new Date(),
+//     },
+//     {
+//       // 本月
+//       text: '本月',
+//       start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+//       end: new Date(),
+//     },
+//     // 本年
+//     {
+//       text: '本年',
+//       start: new Date(new Date().getFullYear(), 0, 1),
+//       end: new Date(),
+//     },
+//   ];
 
-  // const [time, setTime] = useState(target ?? 0);
-  // useEffect(() => {
-  //   const timer = setInterval(() => {
-  //     setTime((time) => {
-  //       return time - 1;
-  //     });
-  //   }, 1000);
+//   // 窗口变更 重新绘制
+//   const resizeChart = () => {
+//     if (
+//       dashboard.state === DashboardState.Config ||
+//       dashboard.state === DashboardState.Create
+//     ) {
+//       return;
+//     }
+//     setInnerWidth(window.innerWidth);
+//     // progress bar 宽度
+//     let barWidth = Math.min(60, (window.innerWidth / 187) * 10);
+//     barWidth = Math.max(10, barWidth);
+//     // 更新图表
+//     myChart.setOption({
+//       series: [
+//         {
+//           barWidth,
+//         },
+//         {
+//           barWidth,
+//         },
+//       ],
+//     });
+//     myChart?.resize(true);
+//     // 更新字体大小
+//     setFontSize(getFontSize());
+//   };
 
-  //   return () => {
-  //     clearInterval(timer);
-  //   };
-  // }, []);
-  return (
-    <div className="progress-bar-view">
-      <div>
-        <div
-          style={{
-            display: categoriesSelectedDatas.length > 0 ? 'block' : 'none',
-            marginBottom: '10px',
-          }}
-        >
-          <Form
-            ref={filterFormRef}
-            layout="horizontal"
-            style={{ padding: 10, width: '100%' }}
-            onValueChange={(values) => {
-              getData({
-                filterFormValues: values,
-              });
-            }}
-          >
-            <Row
-              style={{
-                width: '100%',
-              }}
-            >
-              {categoriesSelectedDatas.map((cItem: any) => {
-                const { fieldType } = cItem;
-                if (fieldType === 1) {
-                  return (
-                    <Col
-                      span={innerWidth < 500 ? 24 : 12}
-                      key={`filter-${cItem?.fieldId}`}
-                      style={{
-                        marginTop: innerWidth < 500 ? '5px' : '0',
-                      }}
-                    >
-                      <Form.Input
-                        field={cItem?.fieldId}
-                        label={cItem?.fieldName}
-                        // initValue={'mikeya'}
-                        // style={{ width: '90%' }}
-                        trigger="blur"
-                      />
-                    </Col>
-                  );
-                } else if (fieldType === 5) {
-                  return (
-                    <Col
-                      span={innerWidth < 500 ? 24 : 12}
-                      key={`filter-${cItem?.fieldId}`}
-                      style={{
-                        marginTop: innerWidth < 500 ? '5px' : '0px',
-                      }}
-                    >
-                      <Form.DatePicker
-                        type="date"
-                        insetInput
-                        onChangeWithDateFirst={false}
-                        field={cItem?.fieldId}
-                        label={cItem?.fieldName}
-                        style={{ width: '100%' }}
-                        format="yyyy/MM/dd"
-                        // onChange={(date: any, dataString: string) => {
-                        //   // console.log('date =>', date, dataString);
-                        //   // 设置表单值为 dataString
-                        //   filterFormRef.current.formApi.setValue(
-                        //     cItem?.fieldId,
-                        //     '1111'
-                        //   );
-                        // }}
-                        // initValue={new Date()}
-                        placeholder="请选择日期"
-                      />
-                    </Col>
-                  );
-                }
-                return '';
-              })}
-            </Row>
-          </Form>
-        </div>
-        <div
-          className="progress-info"
-          style={{
-            fontSize,
-          }}
-        >
-          <span>
-            <span
-              className="number"
-              style={{
-                color: pageConfig.color,
-              }}
-            >
-              {!Number.isNaN(+currentVal) && targetVal !== '-'
-                ? `${formatNumber(currentVal, currentFormat, format)}${unit}`
-                : '-'}
-            </span>
-            <span className="line"></span>
-            <span className="number">
-              {!Number.isNaN(+targetVal) && targetVal !== '-'
-                ? `${formatNumber(targetVal, targetFormat, format)}${unit}`
-                : '-'}
-            </span>
-          </span>
-          <span className="number">{percentage || '-'}%</span>
-        </div>
-        <div
-          id="main"
-          style={{
-            width: '100%',
-            height: '40px',
-          }}
-        ></div>
-      </div>
-    </div>
-  );
-}
+//   useEffect(() => {
+//     window.addEventListener('resize', resizeChart);
 
-// /** 格式化显示时间 */
-// function convertTimestamp(timestamp: number) {
-//   return dayjs(timestamp / 1000).format('YYYY-MM-DD HH:mm:ss');
+//     return () => {
+//       window.removeEventListener('resize', resizeChart);
+//     };
+//   }, []);
+//   return (
+//     <div className="progress-bar-view">
+//       <div>
+//         <div
+//           style={{
+//             display:
+//               categoriesSelectedDatas.length > 0 &&
+//               categoriesSelectedDatasShow.length
+//                 ? 'block'
+//                 : 'none',
+//             marginBottom: '10px',
+//           }}
+//         >
+//           <Form
+//             key={`${JSON.stringify(initValues)}`}
+//             ref={filterFormRef}
+//             layout="horizontal"
+//             initValues={initValues}
+//             style={{ width: '100%' }}
+//             onValueChange={(values) => {
+//               console.log('values =>', values);
+//               getData({
+//                 filterFormValues: values,
+//               });
+//             }}
+//           >
+//             <Row
+//               className={`${innerWidth < filterWidth ? 'line-one' : ''}`}
+//               style={{
+//                 width: '100%',
+//               }}
+//             >
+//               {categoriesSelectedDatas.map((cItem: any) => {
+//                 const { fieldType } = cItem;
+//                 if (fieldType === 1) {
+//                   return (
+//                     <Col
+//                       span={innerWidth < filterWidth ? 24 : 12}
+//                       key={`filter-${cItem?.fieldId}`}
+//                       style={{
+//                         marginTop: innerWidth < filterWidth ? '5px' : '0',
+//                       }}
+//                     >
+//                       <Form.Input
+//                         field={cItem?.fieldId}
+//                         label={cItem?.fieldName}
+//                         // initValue={'mikeya'}
+//                         // style={{ width: '90%' }}
+//                         trigger="blur"
+//                       />
+//                     </Col>
+//                   );
+//                 } else if (fieldType === 5) {
+//                   return (
+//                     <Col
+//                       className="filter-content"
+//                       span={innerWidth < filterWidth ? 24 : 12}
+//                       key={`filter-${cItem?.fieldId}`}
+//                       style={{
+//                         marginTop: innerWidth < filterWidth ? '5px' : '0px',
+//                       }}
+//                     >
+//                       <Form.DatePicker
+//                         // type="date"
+//                         type="dateRange"
+//                         presets={presets}
+//                         insetInput
+//                         onChangeWithDateFirst={false}
+//                         field={cItem?.fieldId}
+//                         label={cItem?.fieldName}
+//                         style={{ width: '100%' }}
+//                         format="yyyy/MM/dd"
+//                         // onChange={(date: any, dataString: string) => {
+//                         //   // console.log('date =>', date, dataString);
+//                         //   // 设置表单值为 dataString
+//                         //   filterFormRef.current.formApi.setValue(
+//                         //     cItem?.fieldId,
+//                         //     '1111'
+//                         //   );
+//                         // }}
+//                         // initValue={new Date()}
+//                         placeholder="请选择日期"
+//                       />
+//                       <div
+//                         className="filter-content-actions"
+//                         style={{
+//                           paddingRight: innerWidth < filterWidth ? '0' : '16px',
+//                         }}
+//                       >
+//                         <Tag
+//                           size="small"
+//                           color="light-blue"
+//                           onClick={() => {
+//                             filterFormRef.current.formApi.setValue(
+//                               cItem?.fieldId,
+//                               [new Date(), new Date()]
+//                             );
+//                           }}
+//                         >
+//                           今天
+//                         </Tag>
+//                         <Tag
+//                           size="small"
+//                           color="light-blue"
+//                           onClick={() => {
+//                             filterFormRef.current.formApi.setValue(
+//                               cItem?.fieldId,
+//                               [
+//                                 new Date(
+//                                   new Date().valueOf() - 1000 * 3600 * 24 * 7
+//                                 ),
+//                                 new Date(),
+//                               ]
+//                             );
+//                           }}
+//                         >
+//                           最近7天
+//                         </Tag>
+//                         <Tag
+//                           size="small"
+//                           color="light-blue"
+//                           onClick={() => {
+//                             filterFormRef.current.formApi.setValue(
+//                               cItem?.fieldId,
+//                               [
+//                                 new Date(
+//                                   new Date().valueOf() - 1000 * 3600 * 24 * 30
+//                                 ),
+//                                 new Date(),
+//                               ]
+//                             );
+//                           }}
+//                         >
+//                           最近30天
+//                         </Tag>
+//                         <Tag
+//                           size="small"
+//                           color="light-blue"
+//                           onClick={() => {
+//                             filterFormRef.current.formApi.setValue(
+//                               cItem?.fieldId,
+//                               [
+//                                 new Date(
+//                                   new Date().getFullYear(),
+//                                   new Date().getMonth(),
+//                                   1
+//                                 ),
+//                                 new Date(),
+//                               ]
+//                             );
+//                           }}
+//                         >
+//                           本月
+//                         </Tag>
+//                         <Tag
+//                           size="small"
+//                           color="light-blue"
+//                           onClick={() => {
+//                             filterFormRef.current.formApi.setValue(
+//                               cItem?.fieldId,
+//                               [
+//                                 new Date(new Date().getFullYear(), 0, 1),
+//                                 new Date(),
+//                               ]
+//                             );
+//                           }}
+//                         >
+//                           本年
+//                         </Tag>
+//                       </div>
+//                     </Col>
+//                   );
+//                 }
+//                 return '';
+//               })}
+//             </Row>
+//           </Form>
+//         </div>
+//         <div
+//           className="progress-info"
+//           style={{
+//             fontSize,
+//           }}
+//         >
+//           <span>
+//             <span
+//               className="number"
+//               style={{
+//                 color: pageConfig.color,
+//               }}
+//             >
+//               {!Number.isNaN(+currentVal) &&
+//               targetVal !== '-' &&
+//               percentage !== ''
+//                 ? `${formatNumber(currentVal, currentFormat, format)}${unit}`
+//                 : '-'}
+//             </span>
+//             <span className="line"></span>
+//             <span className="number">
+//               {!Number.isNaN(+targetVal) &&
+//               targetVal !== '-' &&
+//               percentage !== ''
+//                 ? `${formatNumber(targetVal, targetFormat, format)}${unit}`
+//                 : '-'}
+//             </span>
+//           </span>
+//           <span className="number">{percentage || '-'}%</span>
+//         </div>
+//         <div
+//           id="main"
+//           style={{
+//             width: '100%',
+//             height: '40px',
+//           }}
+//         ></div>
+//       </div>
+//     </div>
+//   );
 // }
-
-// 配置端
-
-function ConfigPanel(props: {
-  pageConfig: any;
-  setPageConfig: any;
-  tableList: any[];
-  tableFileds: any[];
-  availableUnits: ReturnType<typeof getAvailableUnits>;
-  t: TFunction<'translation', undefined>;
-  tableSource: any[];
-  dataRange: any[];
-  setDataRange: React.Dispatch<React.SetStateAction<any[]>>;
-  categories: any[];
-  setCategories: React.Dispatch<React.SetStateAction<any[]>>;
-}) {
-  const {
-    pageConfig,
-    setPageConfig,
-    t,
-    tableSource,
-    dataRange,
-    setDataRange,
-    categories,
-    setCategories,
-  } = props;
-
-  /**保存配置 */
-  const onSaveConfig = () => {
-    dashboard.saveConfig({
-      customConfig: pageConfig,
-    } as any);
-  };
-
-  const resetPageConfig = (opt?: any) => {
-    setPageConfig({
-      ...configDefault,
-      ...opt,
-    });
-  };
-
-  return (
-    <div
-      className="config-panel"
-      style={{
-        overflow: 'auto',
-        // paddingBottom: '100px',
-      }}
-    >
-      <div
-        style={{
-          height: 'calc(100vh - 100px)',
-          overflow: 'auto',
-          // paddingBottom: '100px',
-        }}
-        className="form"
-        // style={{
-        //   maxHeight: 'calc(100% - 100px)',
-        //   overflow: 'auto',
-        //   // paddingBottom: '100px',
-        // }}
-      >
-        <Item label="数据源">
-          <Select
-            value={pageConfig?.tableSourceSelected}
-            style={{ width: '100%' }}
-            onChange={async (val) => {
-              const [tableRanges, categories] = await Promise.all([
-                getTableRange(val),
-                getCategories(val),
-              ]);
-              console.log('categories =>', categories);
-              setDataRange([...tableRanges]);
-              setCategories([...categories]);
-              resetPageConfig({
-                tableSourceSelected: val,
-                color: pageConfig.color,
-              });
-            }}
-            options={(tableSource || []).map((source) => ({
-              value: source.tableId,
-              label: source.tableName,
-            }))}
-          />
-        </Item>
-        <Item label="数据范围">
-          <Select
-            style={{ width: '100%' }}
-            key={`${pageConfig?.tableSourceSelected}-dataRange`}
-            value={
-              pageConfig?.dataRangeSelected
-                ? JSON.stringify(pageConfig?.dataRangeSelected)
-                : ''
-            }
-            onChange={(val: string) => {
-              setPageConfig({
-                ...pageConfig,
-                dataRangeSelected: JSON.parse(val),
-              });
-            }}
-            options={dataRange.map((range) => {
-              const { type } = range;
-              if (type === SourceType.ALL) {
-                return {
-                  value: JSON.stringify(range),
-                  label: '全部数据',
-                };
-              } else {
-                return {
-                  value: JSON.stringify(range),
-                  label: range.viewName,
-                };
-              }
-            })}
-          />
-        </Item>
-        <Item label="选择器">
-          <Select
-            mode="multiple"
-            style={{ width: '100%' }}
-            key={`${pageConfig?.tableSourceSelected}-categories`}
-            value={pageConfig?.categoriesSelected}
-            onChange={(val) => {
-              setPageConfig({
-                ...pageConfig,
-                categoriesSelected: val,
-              });
-            }}
-            options={categories
-              .filter((cItem) => cItem.fieldType === 5)
-              .map((category) => {
-                return {
-                  value: JSON.stringify(category),
-                  label: category.fieldName,
-                };
-              })}
-          />
-          <Banner
-            type="warning"
-            style={{ marginTop: '10px' }}
-            closeIcon={null}
-            description="当前仅支持日期格式的筛选能力"
-          />
-        </Item>
-        {/* targetValueType: 1,
-        targetValue: '',
-        // 当前值类型
-        currentValueType: 1,
-        currentValue: '', */}
-        <Item label="目标值">
-          <RadioGroup
-            type="button"
-            style={{
-              background: '#f0f0f0',
-            }}
-            value={pageConfig?.targetValueType}
-            aria-label=""
-            name="demo-radio-group"
-            onChange={(e) => {
-              setPageConfig({
-                ...pageConfig,
-                targetValueType: e.target.value,
-              });
-            }}
-          >
-            <Radio value={'1'}>自定义值</Radio>
-            <Radio value={'2'}>多维表格数据</Radio>
-          </RadioGroup>
-          {pageConfig?.targetValueType === '1' ? (
-            <InputNumber
-              hideButtons
-              placeholder={'请输入目标值'}
-              style={{ width: '100%', marginTop: '10px' }}
-              value={pageConfig?.targetValue}
-              maxLength={16}
-              onChange={(val) => {
-                setPageConfig({
-                  ...pageConfig,
-                  targetValue: val,
-                });
-              }}
-            />
-          ) : null}
-          {pageConfig?.targetValueType === '2' ? (
-            <Select
-              style={{ width: '100%', marginTop: '10px' }}
-              value={pageConfig?.targetValueTypeKind}
-              options={[
-                {
-                  label: '统计字段总数',
-                  value: 'COUNTA',
-                },
-                {
-                  label: '统计字段数值',
-                  value: 'VALUE',
-                },
-              ]}
-              onChange={(val) => {
-                setPageConfig({
-                  ...pageConfig,
-                  targetValueTypeKind: val,
-                });
-              }}
-            ></Select>
-          ) : null}
-          {pageConfig?.targetValueType === '2' &&
-          pageConfig?.targetValueTypeKind === 'VALUE' ? (
-            <Select
-              style={{ width: '100%', marginTop: '10px' }}
-              value={pageConfig?.targetValue}
-              options={categories
-                .filter(
-                  (cItem) => cItem.fieldType === 19 || cItem.fieldType === 2
-                )
-                .map((category) => ({
-                  label: category.fieldName,
-                  value: category.fieldId,
-                }))}
-              onChange={(val) => {
-                setPageConfig({
-                  ...pageConfig,
-                  targetValue: val,
-                });
-              }}
-            ></Select>
-          ) : null}
-          {pageConfig?.targetValueType === '2' &&
-          pageConfig?.targetValueTypeKind === 'VALUE' ? (
-            <div>
-              <span>计算方式：</span>
-              <Select
-                style={{ width: '229px', marginTop: '10px' }}
-                value={pageConfig?.targetValueComputed}
-                onChange={(val) => {
-                  setPageConfig({
-                    ...pageConfig,
-                    targetValueComputed: val,
-                  });
-                }}
-                options={[
-                  {
-                    label: '求和',
-                    value: 'sum',
-                  },
-                  {
-                    label: '平均值',
-                    value: 'avg',
-                  },
-                  {
-                    label: '最大值',
-                    value: 'max',
-                  },
-                  {
-                    label: '最小值',
-                    value: 'min',
-                  },
-                ]}
-              ></Select>
-            </div>
-          ) : null}
-          <div className="m-t-10">
-            <span className="m-r-10">格式：</span>
-            <Select
-              value={pageConfig?.targetFormat}
-              style={{ width: '229px', marginTop: '10px' }}
-              onChange={(val) => {
-                setPageConfig({
-                  ...pageConfig,
-                  targetFormat: val,
-                });
-              }}
-              options={NUMBER_FORMAT_ENU}
-            />
-          </div>
-        </Item>
-        <Item label="当前值">
-          <RadioGroup
-            type="button"
-            // value={value}
-            value={pageConfig?.currentValueType}
-            aria-label=""
-            name="demo-radio-group"
-            style={{
-              background: '#f0f0f0',
-            }}
-            onChange={(e) => {
-              setPageConfig({
-                ...pageConfig,
-                currentValueType: e.target.value,
-              });
-            }}
-          >
-            <Radio value={'1'}>自定义值</Radio>
-            <Radio value={'2'}>多维表格数据</Radio>
-          </RadioGroup>
-          {pageConfig?.currentValueType === '1' ? (
-            <InputNumber
-              style={{ width: '100%', marginTop: '10px' }}
-              hideButtons
-              placeholder={'请输入当前值'}
-              maxLength={16}
-              value={pageConfig?.currentValue}
-              onChange={(val) => {
-                setPageConfig({
-                  ...pageConfig,
-                  currentValue: val,
-                });
-              }}
-            />
-          ) : null}
-          {pageConfig?.currentValueType === '2' ? (
-            <Select
-              style={{ width: '100%', marginTop: '10px' }}
-              value={pageConfig?.currentValueTypeKind}
-              options={[
-                {
-                  label: '统计字段总数',
-                  value: 'COUNTA',
-                },
-                {
-                  label: '统计字段数值',
-                  value: 'VALUE',
-                },
-              ]}
-              onChange={(val) => {
-                setPageConfig({
-                  ...pageConfig,
-                  currentValueTypeKind: val,
-                  currentValue: null,
-                });
-              }}
-            ></Select>
-          ) : null}
-          {pageConfig?.currentValueType === '2' &&
-          pageConfig?.currentValueTypeKind === 'VALUE' ? (
-            // 99002 进度 99003 金额 99004 评分 2 数值
-            <Select
-              style={{ width: '100%', marginTop: '10px' }}
-              value={pageConfig?.currentValue}
-              options={(categories || [])
-                // .filter((cItem) =>
-                //   [2, 19, 99002, 99003, 99004].includes(cItem.fieldType)
-                // )
-                .map((category) => ({
-                  label: category.fieldName,
-                  value: category.fieldId,
-                  type: category.fieldType,
-                }))}
-              onChange={(val, obj: any) => {
-                setPageConfig({
-                  ...pageConfig,
-                  currentValue: val,
-                  currentValueWarn: ![2, 19, 99002, 99003, 99004].includes(
-                    obj.type
-                  ),
-                });
-              }}
-            ></Select>
-          ) : null}
-          {
-            // 99002 进度 99003 金额 99004 评分 2 数值 异常警告
-            pageConfig?.currentValueWarn ? (
-              <Banner
-                type="warning"
-                style={{ marginTop: '10px' }}
-                closeIcon={null}
-                description="当前字段格式类型不支持计算，请确认字段类型为数值类型"
-              />
-            ) : null
-          }
-          {pageConfig?.currentValueType === '2' &&
-          pageConfig?.currentValueTypeKind === 'VALUE' ? (
-            <div>
-              <span>计算方式：</span>
-              <Select
-                style={{ width: '229px', marginTop: '10px' }}
-                value={pageConfig?.currentValueComputed}
-                onChange={(val) => {
-                  setPageConfig({
-                    ...pageConfig,
-                    currentValueComputed: val,
-                  });
-                }}
-                options={[
-                  {
-                    label: '求和',
-                    value: 'sum',
-                  },
-                  {
-                    label: '平均值',
-                    value: 'avg',
-                  },
-                  {
-                    label: '最大值',
-                    value: 'max',
-                  },
-                  {
-                    label: '最小值',
-                    value: 'min',
-                  },
-                ]}
-              ></Select>
-            </div>
-          ) : null}
-          <div className="m-t-10">
-            <span className="m-r-10">格式：</span>
-            <Select
-              value={pageConfig?.currentFormat}
-              style={{ width: '229px', marginTop: '10px' }}
-              onChange={(val) => {
-                setPageConfig({
-                  ...pageConfig,
-                  currentFormat: val,
-                });
-              }}
-              options={NUMBER_FORMAT_ENU}
-            />
-          </div>
-        </Item>
-        <Item label={'颜色'}>
-          <ColorPicker
-            value={pageConfig.color}
-            onChange={(v, val) => {
-              setPageConfig({
-                ...pageConfig,
-                color: val,
-              });
-            }}
-          ></ColorPicker>
-        </Item>
-        <Item label="单位">
-          <Select
-            allowClear
-            value={pageConfig?.unit}
-            style={{ width: '100%' }}
-            onChange={(val) => {
-              setPageConfig({
-                ...pageConfig,
-                unit: val || '',
-              });
-            }}
-            options={[
-              {
-                value: '个',
-                label: '个',
-              },
-              {
-                value: '元',
-                label: '元',
-              },
-            ]}
-          />
-        </Item>
-        <Item label="精度">
-          <Select
-            value={pageConfig?.format}
-            style={{ width: '100%' }}
-            onChange={(val) => {
-              setPageConfig({
-                ...pageConfig,
-                format: val,
-              });
-            }}
-            options={[
-              {
-                value: '0',
-                label: '整数',
-              },
-              {
-                value: '1',
-                label: '保留1位小数',
-              },
-              {
-                value: '2',
-                label: '保留2位小数',
-              },
-            ]}
-          />
-        </Item>
-        <Item label="百分比格式">
-          <Select
-            value={pageConfig?.percentageFormat}
-            style={{ width: '100%' }}
-            onChange={(val) => {
-              setPageConfig({
-                ...pageConfig,
-                percentageFormat: val,
-              });
-            }}
-            options={[
-              {
-                value: '0',
-                label: '整数',
-              },
-              {
-                value: '1',
-                label: '保留1位小数',
-              },
-              {
-                value: '2',
-                label: '保留2位小数',
-              },
-            ]}
-          />
-        </Item>
-      </div>
-
-      <Button className="btn" theme="solid" onClick={onSaveConfig}>
-        {t('confirm')}
-      </Button>
-    </div>
-  );
-}
