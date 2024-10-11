@@ -9,7 +9,6 @@ import {
   SourceType,
 } from '@lark-base-open/js-sdk';
 import { useState, useEffect, useRef } from 'react';
-import * as echarts from 'echarts';
 // import { getTime } from './utils';
 import { useConfig } from '../../hooks';
 // import dayjs from 'dayjs';
@@ -29,6 +28,7 @@ let myChart: any = null; // echarts实例
 //  默认配置
 const configDefault = {
   target: new Date().getTime(),
+  chartType: 'BAR',
   color: '#3370ff',
   tableSourceSelected: '',
   dataRangeSelected: '',
@@ -82,6 +82,7 @@ const getCategories = (tableId: string) => {
 
 /** 插件主体 */
 export default function ProgressBar() {
+  const ProgressBarViewRef: any = useRef();
   const { t, i18n } = useTranslation();
 
   const filterFormRef: any = useRef();
@@ -115,8 +116,9 @@ export default function ProgressBar() {
     if (timer.current) {
       clearTimeout(timer.current);
     }
-    const { customConfig } = res;
+    let { customConfig } = res;
     if (customConfig) {
+      customConfig.chartType = customConfig.chartType || 'BAR';
       setPageConfig(customConfig as any);
       timer.current = setTimeout(() => {
         //自动化发送截图。 预留3s给浏览器进行渲染，3s后告知服务端可以进行截图了（对域名进行了拦截，此功能仅上架部署后可用）。
@@ -148,129 +150,152 @@ export default function ProgressBar() {
   };
 
   // 绘制chart
-  const drawChart = () => {
-    const { targetVal, currentVal } = renderData;
-    let showCurrentVal = currentVal;
-    document.getElementById('main')?.removeAttribute('_echarts_instance_');
-    myChart = echarts.init(document.getElementById('main'));
-    if (currentVal - targetVal > 0) {
-      showCurrentVal = targetVal;
-    } else if (currentVal) {
-      showCurrentVal = Math.max(targetVal / 20, currentVal);
-    }
+  // const drawChart = () => {
+  //   const { targetVal, currentVal } = renderData;
+  //   let showCurrentVal = currentVal;
+  //   document.getElementById('main')?.removeAttribute('_echarts_instance_');
+  //   myChart = echarts.init(document.getElementById('main'));
+  //   if (currentVal - targetVal > 0) {
+  //     showCurrentVal = targetVal;
+  //   } else if (currentVal) {
+  //     showCurrentVal = Math.max(targetVal / 20, currentVal);
+  //   }
 
-    // progress bar 宽度
-    let barWidth = Math.min(60, (window.innerWidth / 187) * 10);
-    barWidth = Math.max(10, barWidth);
+  //   // progress bar 宽度
+  //   let barWidth = Math.min(60, (window.innerWidth / 187) * 10);
+  //   barWidth = Math.max(10, barWidth);
 
-    if (
-      dashboard.state === DashboardState.Config ||
-      dashboard.state === DashboardState.Create
-    ) {
-      barWidth = 20;
-    }
-    // 绘制图表
-    const option = {
-      title: {
-        // text: '测试进度条',
-        show: false,
-      },
-      tooltip: {
-        show: false,
-      },
-      // backgroundColor: '#17326b',
-      grid: {
-        show: false,
-        left: '0',
-        top: '0',
-        right: '0',
-        bottom: '0',
-        containLabel: true,
-      },
-      xAxis: {
-        type: 'value',
-        splitLine: { show: false },
-        axisLabel: {
-          show: false,
-        },
-        axisTick: { show: false },
-        axisLine: { show: false },
-      },
-      yAxis: [
-        {
-          type: 'category',
-          axisTick: { show: false },
-          axisLine: { show: false },
-          axisLabel: {
-            show: false,
-          },
-          data: ['进度'],
-          max: 1, // 关键：设置y刻度最大值，相当于设置总体行高
-          inverse: true,
-        },
-        // {
-        //   type: 'category',
-        //   axisTick: { show: false },
-        //   axisLine: { show: false },
-        //   axisLabel: {
-        //     fontSize: 14,
-        //     textStyle: {
-        //       color: '#666',
-        //       fontWeight: 'bold',
-        //     },
-        //   },
-        //   data: [percentage],
-        //   max: 1, // 关键：设置y刻度最大值，相当于设置总体行高
-        //   inverse: true,
-        // },
-      ],
-      series: [
-        {
-          name: '条',
-          type: 'bar',
-          barWidth,
-          data: [showCurrentVal || 0],
-          // barCategoryGap: 20,
-          itemStyle: {
-            normal: {
-              barBorderRadius: barWidth / 2,
-              color: pageConfig.color,
-              // color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-              //   {
-              //     offset: 0,
-              //     color: '#22b6ed',
-              //   },
-              //   {
-              //     offset: 1,
-              //     color: '#3fE279',
-              //   },
-              // ]),
-            },
-          },
-          // label: {
-          //   show: true,
-          //   color: 'red',
-          //   fontSize: 20,
-          // },
-          zlevel: 1,
-        },
-        {
-          name: '进度条背景',
-          type: 'bar',
-          barGap: '-100%',
-          barWidth,
-          data: [targetVal || 100],
-          color: '#e0e0e0',
-          itemStyle: {
-            normal: {
-              barBorderRadius: barWidth / 2,
-            },
-          },
-        },
-      ],
-    };
-    myChart.setOption(option, true);
-  };
+  //   if (
+  //     dashboard.state === DashboardState.Config ||
+  //     dashboard.state === DashboardState.Create
+  //   ) {
+  //     barWidth = 20;
+  //   }
+  //   // 绘制图表
+  //   const option = {
+  //     title: {
+  //       // text: '测试进度条',
+  //       show: false,
+  //     },
+  //     tooltip: {
+  //       show: false,
+  //     },
+  //     // backgroundColor: '#17326b',
+  //     grid: {
+  //       show: false,
+  //       left: '0',
+  //       top: '0',
+  //       right: '0',
+  //       bottom: '0',
+  //       containLabel: true,
+  //     },
+  //     xAxis: {
+  //       type: 'value',
+  //       splitLine: { show: false },
+  //       axisLabel: {
+  //         show: false,
+  //       },
+  //       axisTick: { show: false },
+  //       axisLine: { show: false },
+  //     },
+  //     yAxis: [
+  //       {
+  //         type: 'category',
+  //         axisTick: { show: false },
+  //         axisLine: { show: false },
+  //         axisLabel: {
+  //           show: false,
+  //         },
+  //         data: ['进度'],
+  //         max: 1, // 关键：设置y刻度最大值，相当于设置总体行高
+  //         inverse: true,
+  //       },
+  //       // {
+  //       //   type: 'category',
+  //       //   axisTick: { show: false },
+  //       //   axisLine: { show: false },
+  //       //   axisLabel: {
+  //       //     fontSize: 14,
+  //       //     textStyle: {
+  //       //       color: '#666',
+  //       //       fontWeight: 'bold',
+  //       //     },
+  //       //   },
+  //       //   data: [percentage],
+  //       //   max: 1, // 关键：设置y刻度最大值，相当于设置总体行高
+  //       //   inverse: true,
+  //       // },
+  //     ],
+  //     series: [
+  //       {
+  //         name: '条',
+  //         type: 'bar',
+  //         barWidth,
+  //         data: [showCurrentVal || 0],
+  //         // barCategoryGap: 20,
+  //         itemStyle: {
+  //           normal: {
+  //             barBorderRadius: barWidth / 2,
+  //             color: pageConfig.color,
+  //             // color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+  //             //   {
+  //             //     offset: 0,
+  //             //     color: '#22b6ed',
+  //             //   },
+  //             //   {
+  //             //     offset: 1,
+  //             //     color: '#3fE279',
+  //             //   },
+  //             // ]),
+  //           },
+  //         },
+  //         // label: {
+  //         //   show: true,
+  //         //   color: 'red',
+  //         //   fontSize: 20,
+  //         // },
+  //         zlevel: 1,
+  //       },
+  //       {
+  //         name: '进度条背景',
+  //         type: 'bar',
+  //         barGap: '-100%',
+  //         barWidth,
+  //         data: [targetVal || 100],
+  //         color: '#e0e0e0',
+  //         itemStyle: {
+  //           normal: {
+  //             barBorderRadius: barWidth / 2,
+  //           },
+  //         },
+  //       },
+  //     ],
+  //   };
+  //   const circleOptionOpt = {
+  //     series: [
+  //       {
+  //         type: 'pie',
+  //         radius: ['80%', '100%'],
+  //         avoidLabelOverlap: false,
+  //         label: {
+  //           show: false,
+  //         },
+  //         emphasis: {
+  //           label: {
+  //             show: false,
+  //           },
+  //         },
+  //         data: [
+  //           { value: showCurrentVal, name: '已完成' },
+  //           { value: targetVal - showCurrentVal, name: '未完成' },
+  //         ],
+  //       },
+  //     ],
+  //     color: ['#5470c6', '#dcdcdc'],
+  //   };
+  //   myChart.setOption(circleOptionOpt, true);
+  //   // myChart.setOption(option, true);
+  // };
 
   // 计算数值
   const computeValue = (valArr: any, type: string) => {
@@ -524,8 +549,10 @@ export default function ProgressBar() {
   };
 
   useEffect(() => {
-    drawChart();
-  }, [JSON.stringify(renderData), pageConfig?.color]);
+    // drawChart();
+    console.log('1111');
+    ProgressBarViewRef?.current?.drawChartHandle();
+  }, [JSON.stringify(renderData), pageConfig?.color, pageConfig?.chartType]);
 
   useEffect(() => {
     if (
@@ -554,6 +581,7 @@ export default function ProgressBar() {
     >
       <div className="content">
         <ProgressBarView
+          ref={ProgressBarViewRef}
           t={t}
           myChart={myChart}
           getData={getData}

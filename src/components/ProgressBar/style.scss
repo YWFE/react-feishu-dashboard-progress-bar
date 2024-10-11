@@ -42,6 +42,28 @@
   .categories-selected-otherConfig-item-label {
     display: inline-block;
   }
+  .charts-items {
+    .charts-item {
+      cursor: pointer;
+      opacity: 0.8;
+      padding: 8px;
+      border: 1px solid var(--ccm-chart-B500);
+      border-radius: 10px;
+      color: var(--ccm-chart-B500);
+      // 灰色
+      filter: grayscale(90%);
+      > img {
+        padding: 10px;
+        border-radius: 10px;
+        background-color: var(--ccm-chart-B50);
+        margin-bottom: 5px;
+      }
+      &.active {
+        opacity: 1;
+        filter: grayscale(0%);
+      }
+    }
+  }
 }
 
 .form {

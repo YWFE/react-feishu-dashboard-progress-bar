@@ -21,7 +21,14 @@ import {
   DatePicker,
 } from '@douyinfe/semi-ui';
 import { Select } from 'antd';
-import { useState, useEffect, useRef } from 'react';
+import * as echarts from 'echarts';
+import {
+  useState,
+  useEffect,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+} from 'react';
 import { Item } from '../../Item';
 import { ColorPicker } from '../../ColorPicker';
 import { IconConfigStroked } from '@douyinfe/semi-icons';
@@ -37,13 +44,10 @@ interface IProgressBarView {
   t: any;
 }
 
-function ProgressBarView({
-  myChart,
-  pageConfig,
-  filterFormRef,
-  getData,
-  renderData,
-}: IProgressBarView) {
+function ProgressBarView(
+  { myChart, pageConfig, filterFormRef, getData, renderData }: IProgressBarView,
+  ref
+) {
   const { targetVal, currentVal, percentage } = renderData;
   const {
     categoriesSelected,
@@ -52,6 +56,7 @@ function ProgressBarView({
     currentFormat,
     format,
     unit,
+    chartType = 'BAR',
   } = pageConfig;
   let categoriesSelectedDatas: any = [];
   let categoriesSelectedDatasShow: any = [];
@@ -98,6 +103,280 @@ function ProgressBarView({
     dashboard.state === DashboardState.View ? getFontSize() : '2vw'
   );
   const [innerWidth, setInnerWidth] = useState(window.innerWidth);
+  const [innerHeight, setInnerHeight] = useState(window.innerHeight);
+
+  useImperativeHandle(ref, () => ({
+    drawChartHandle: () => {
+      drawChart();
+    },
+  }));
+
+  // 条形配置
+  const barOption = (barWidth: any, opt: any) => {
+    const { targetVal, showCurrentVal } = opt;
+    return {
+      title: {
+        // text: '测试进度条',
+        show: false,
+      },
+      tooltip: {
+        show: false,
+      },
+      // backgroundColor: '#17326b',
+      grid: {
+        show: false,
+        left: '0',
+        top: '0',
+        right: '0',
+        bottom: '0',
+        containLabel: true,
+      },
+      xAxis: {
+        type: 'value',
+        splitLine: { show: false },
+        axisLabel: {
+          show: false,
+        },
+        axisTick: { show: false },
+        axisLine: { show: false },
+      },
+      yAxis: [
+        {
+          type: 'category',
+          axisTick: { show: false },
+          axisLine: { show: false },
+          axisLabel: {
+            show: false,
+          },
+          data: ['进度'],
+          max: 1, // 关键：设置y刻度最大值，相当于设置总体行高
+          inverse: true,
+        },
+        // {
+        //   type: 'category',
+        //   axisTick: { show: false },
+        //   axisLine: { show: false },
+        //   axisLabel: {
+        //     fontSize: 14,
+        //     textStyle: {
+        //       color: '#666',
+        //       fontWeight: 'bold',
+        //     },
+        //   },
+        //   data: [percentage],
+        //   max: 1, // 关键：设置y刻度最大值，相当于设置总体行高
+        //   inverse: true,
+        // },
+      ],
+      series: [
+        {
+          name: '条',
+          type: 'bar',
+          barWidth,
+          data: [showCurrentVal || 0],
+          // barCategoryGap: 20,
+          itemStyle: {
+            normal: {
+              barBorderRadius: barWidth / 2,
+              color: pageConfig.color,
+              // color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+              //   {
+              //     offset: 0,
+              //     color: '#22b6ed',
+              //   },
+              //   {
+              //     offset: 1,
+              //     color: '#3fE279',
+              //   },
+              // ]),
+            },
+          },
+          // label: {
+          //   show: true,
+          //   color: 'red',
+          //   fontSize: 20,
+          // },
+          zlevel: 1,
+        },
+        {
+          name: '进度条背景',
+          type: 'bar',
+          barGap: '-100%',
+          barWidth,
+          data: [targetVal || 100],
+          color: '#e0e0e0',
+          itemStyle: {
+            normal: {
+              barBorderRadius: barWidth / 2,
+            },
+          },
+        },
+      ],
+    };
+  };
+
+  // 半圆配置
+  const semiCircleOptin = (barWidth: any, opt: any) => {
+    const { targetVal, showCurrentVal } = opt;
+    return {
+      series: [
+        {
+          type: 'pie',
+          startAngle: 180,
+          endAngle: 0,
+          radius: ['80%', '100%'],
+          avoidLabelOverlap: false,
+          label: {
+            show: false,
+          },
+          data: [
+            {
+              value: showCurrentVal,
+              name: '已完成',
+              itemStyle: {
+                borderRadius: [10, 10, 10, 10], // 已完成部分设置圆角
+              },
+            },
+            {
+              value: 100 - showCurrentVal,
+              name: '未完成',
+              itemStyle: {
+                borderRadius: [0, 10, 0, 10], // 已完成部分设置圆角
+              },
+            },
+          ],
+        },
+      ],
+      color: [pageConfig?.color, '#E0E0E0'],
+    };
+  };
+
+  // 环形配置
+  const ringOption = (barWidth: any, opt: any) => {
+    const { targetVal, showCurrentVal } = opt;
+    return {
+      angleAxis: {
+        max: targetVal, // 总数
+        clockwise: false, // 逆时针
+        // 隐藏刻度线
+        axisLine: {
+          show: false,
+        },
+        axisTick: {
+          show: false,
+        },
+        axisLabel: {
+          show: false,
+        },
+        splitLine: {
+          show: false,
+        },
+      },
+      radiusAxis: {
+        type: 'category',
+        // 隐藏刻度线
+        axisLine: {
+          show: false,
+        },
+        axisTick: {
+          show: false,
+        },
+        axisLabel: {
+          show: false,
+        },
+        splitLine: {
+          show: false,
+        },
+      },
+      polar: {
+        center: ['50%', '50%'],
+        radius: '100%', // 图形大小
+      },
+      series: [
+        {
+          type: 'bar',
+          data: [
+            {
+              name: '',
+              value: showCurrentVal,
+              itemStyle: {
+                normal: {
+                  color: pageConfig?.color,
+                },
+              },
+            },
+          ],
+          coordinateSystem: 'polar',
+          roundCap: true,
+          barWidth: (barWidth * 4) / 5,
+          barGap: '-100%',
+          z: 2,
+        },
+        {
+          // 底色环
+          type: 'bar',
+          data: [
+            {
+              value: targetVal,
+              itemStyle: {
+                color: '#e0e0e0',
+              },
+            },
+          ],
+          coordinateSystem: 'polar',
+          roundCap: true,
+          barWidth: (barWidth * 4) / 5,
+          barGap: '-100%',
+          z: 1,
+        },
+      ],
+    };
+  };
+
+  // 绘制chart
+  const drawChart = () => {
+    const { targetVal, currentVal } = renderData;
+    let showCurrentVal = currentVal;
+    document.getElementById('main')?.removeAttribute('_echarts_instance_');
+    myChart = echarts.init(document.getElementById('main'));
+    if (currentVal - targetVal > 0) {
+      showCurrentVal = targetVal;
+    } else if (currentVal) {
+      showCurrentVal = Math.max(targetVal / 20, currentVal);
+    }
+
+    // progress bar 宽度
+    let barWidth = Math.min(60, (window.innerWidth / 187) * 10);
+    barWidth = Math.max(10, barWidth);
+
+    if (
+      dashboard.state === DashboardState.Config ||
+      dashboard.state === DashboardState.Create
+    ) {
+      barWidth = 20;
+    }
+    // 绘制图表
+
+    let option = {};
+    if (chartType === 'BAR') {
+      option = barOption(barWidth, {
+        targetVal,
+        showCurrentVal,
+      });
+    } else if (chartType === 'CIRCLE') {
+      option = semiCircleOptin(barWidth, {
+        targetVal,
+        showCurrentVal,
+      });
+    } else if (chartType === 'RING') {
+      option = ringOption(barWidth, {
+        targetVal,
+        showCurrentVal,
+      });
+    }
+    myChart.setOption(option, true);
+    // myChart.setOption(option, true);
+  };
 
   // 窗口变更 重新绘制
   const resizeChart = () => {
@@ -108,6 +387,7 @@ function ProgressBarView({
       return;
     }
     setInnerWidth(window.innerWidth);
+    setInnerHeight(window.innerHeight);
     // progress bar 宽度
     let barWidth = Math.min(60, (window.innerWidth / 187) * 10);
     barWidth = Math.max(10, barWidth);
@@ -346,7 +626,13 @@ function ProgressBarView({
           id="main"
           style={{
             width: '100%',
-            height: '40px',
+            // height: '40px',
+            height:
+              chartType === 'BAR'
+                ? '40px'
+                : chartType === 'CIRCLE'
+                ? Math.min(innerHeight - 40, innerWidth / 2)
+                : Math.min(innerHeight - 40, (innerWidth * 3) / 5),
           }}
         ></div>
       </div>
@@ -354,4 +640,4 @@ function ProgressBarView({
   );
 }
 
-export default ProgressBarView;
+export default forwardRef(ProgressBarView);

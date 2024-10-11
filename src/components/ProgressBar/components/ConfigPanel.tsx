@@ -483,6 +483,61 @@ function ConfigPanel(props: {
             />
           </div>
         </Item>
+        <Item label={'图表类型'}>
+          <div className="charts-items flex-j-sb">
+            <div
+              className={`charts-item ${
+                pageConfig?.chartType === 'BAR' ? 'active' : ''
+              }`}
+              onClick={() => {
+                setPageConfig({
+                  ...pageConfig,
+                  chartType: 'BAR',
+                });
+              }}
+            >
+              <img src="src/images/bar-icon-1.svg" />
+              <div className="text-center">条形</div>
+            </div>
+            <div
+              className={`charts-item ${
+                pageConfig?.chartType === 'CIRCLE' ? 'active' : ''
+              }`}
+              onClick={() => {
+                setPageConfig({
+                  ...pageConfig,
+                  chartType: 'CIRCLE',
+                });
+              }}
+            >
+              <img src="src/images/bar-icon-2.svg" />
+              <div className="text-center">半圆</div>
+            </div>
+            <div
+              className={`charts-item ${
+                pageConfig?.chartType === 'RING' ? 'active' : ''
+              }`}
+              onClick={() => {
+                setPageConfig({
+                  ...pageConfig,
+                  chartType: 'RING',
+                });
+              }}
+            >
+              <img src="src/images/bar-icon-3.svg" />
+              <div className="text-center">环形</div>
+            </div>
+          </div>
+          {/* <ColorPicker
+            value={pageConfig.color}
+            onChange={(v, val) => {
+              setPageConfig({
+                ...pageConfig,
+                color: val,
+              });
+            }}
+          ></ColorPicker> */}
+        </Item>
         <Item label={'颜色'}>
           <ColorPicker
             value={pageConfig.color}
